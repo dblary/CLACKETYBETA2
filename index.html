@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Brick Train Builder: Tactile Workshop</title>
+  <meta name="description" content="A tactile 3D brick building workshop: drag pieces from the visual tray, snap them onto the locomotive with magnetic snap mechanics, tactile clack sounds, and steam driving simulation!">
+  <link rel="stylesheet" href="./src/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚂</text></svg>">
+  <!-- Cannon-es Rigid Body Physics CDN (Requirement 1) -->
+  <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js"></script>
+</head>
+<body>
+  <!-- Fullscreen 3D Viewport -->
+  <div id="canvas-container"></div>
+
+  <!-- Floating Dynamic Alignment Indicator (Stud-pitch clutch and 90° rotation cue) -->
+  <div id="drag-alignment-pill" class="drag-alignment-pill" style="display: none;">
+    <span id="drag-alignment-icon">⬇️</span>
+    <span id="drag-alignment-text">Aligned — Release to Snap!</span>
+  </div>
+
+
+  <!-- Loading Screen -->
+  <div id="loading-overlay">
+    <div class="loader-brick">
+      <div class="stud s1"></div>
+      <div class="stud s2"></div>
+      <div class="stud s3"></div>
+      <div class="stud s4"></div>
+    </div>
+    <div class="loading-title" id="loading-text">Assembling Brick Workshop...</div>
+    <div class="loading-bar-bg">
+      <div class="loading-bar-fill" id="loading-bar"></div>
+    </div>
+    <p class="loading-tip">Loading 170 precision interlocking elements & textures</p>
+  </div>
+
+  <!-- Main UI Layer -->
+  <div class="ui-layer">
+    <!-- Top Navigation Header -->
+    <header class="app-header interactive">
+      <div class="logo-group">
+        <div class="logo-badge" title="Brick Train Workshop">🚂</div>
+        <div class="logo-text">
+          <h1 class="app-title">Brick Train Builder</h1>
+          <span class="badge-tag">Tactile Workshop</span>
+        </div>
+      </div>
+
+      <!-- Mode Switcher -->
+      <nav class="mode-switcher" aria-label="Workshop Modes">
+        <button id="btn-train-mode" class="mode-btn active" title="Toy Building Mode">
+          <span class="mode-icon">🔨</span> Build Mode
+        </button>
+        <button id="btn-builder-mode" class="mode-btn" title="Free Brick Placement on Baseplate">
+          <span class="mode-icon">🧱</span> Free Builder
+        </button>
+        <button id="btn-drive-mode" class="mode-btn drive-mode-btn" title="Drive Train on Track">
+          <span class="mode-icon">🕹️</span> Drive Train
+        </button>
+      </nav>
+
+      <!-- Action Controls -->
+      <div class="header-actions">
+        <div class="brick-pill" id="brick-counter" title="Total granular bricks placed">
+          <span>🧱</span> Model Progress: <span id="brick-count">0</span> / 42
+        </div>
+        <button id="btn-ghost-toggle" class="chunky-btn" title="Toggle Ghost Guide Outline (Shortcut: G)">
+          <span id="ghost-toggle-icon">👻</span> <span id="ghost-toggle-label">Ghost: OFF</span>
+        </button>
+        <button id="btn-music-toggle" class="chunky-btn music-active" title="Toggle Background Music (90% Tempo, Shortcut: M)">
+          <span id="music-toggle-icon">🎵</span> <span id="music-toggle-label">Music: ON</span>
+        </button>
+        <button id="btn-sound-toggle" class="chunky-btn" title="Toggle Sound Effects">
+          <span id="sound-icon">🔊</span> <span id="sound-label">Sound</span>
+        </button>
+        <button id="btn-crash-toggle" class="chunky-btn crash-btn" title="Realistic Rigid-Body Demolish / Crash">
+          <span id="crash-btn-icon">💥</span> <span id="crash-btn-label">Demolish</span>
+        </button>
+        <button id="btn-restart-build" class="chunky-btn" title="Reset Train Build">
+          <span>🔄</span> Reset
+        </button>
+      </div>
+    </header>
+
+    <!-- LEFT VERTICAL CATEGORY BAR (Workshop Drawer) -->
+    <nav id="category-sidebar" class="category-sidebar interactive" aria-label="Piece Categories">
+      <div class="cat-sidebar-header">
+        <span class="cat-drawer-icon">🗄️</span>
+        <span class="cat-sidebar-title">PARTS</span>
+      </div>
+      <div class="cat-buttons-group">
+        <button class="cat-filter-btn active" data-cat="all" title="All Available Parts">
+          <span class="cat-icon">📦</span>
+          <span class="cat-name">All</span>
+          <span class="cat-badge" id="count-all">42</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="bricks" title="Standard Interlocking Bricks">
+          <span class="cat-icon">■</span>
+          <span class="cat-name">Bricks</span>
+          <span class="cat-badge" id="count-bricks">12</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="plates" title="Chassis & Flat Plates">
+          <span class="cat-icon">▬</span>
+          <span class="cat-name">Plates</span>
+          <span class="cat-badge" id="count-plates">8</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="round" title="Round, Cylinders, Boiler & Headlamp">
+          <span class="cat-icon">●</span>
+          <span class="cat-name">Round</span>
+          <span class="cat-badge" id="count-round">9</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="slopes" title="Curved Slopes & Roofs">
+          <span class="cat-icon">▲</span>
+          <span class="cat-name">Slopes</span>
+          <span class="cat-badge" id="count-slopes">4</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="wheels" title="Wheels, Bogies & Couplers">
+          <span class="cat-icon">⚙️</span>
+          <span class="cat-name">Wheels</span>
+          <span class="cat-badge" id="count-wheels">4</span>
+        </button>
+        <button class="cat-filter-btn" data-cat="special" title="Windows, Windshields & Translucent Elements">
+          <span class="cat-icon">💎</span>
+          <span class="cat-name">Special</span>
+          <span class="cat-badge" id="count-special">5</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- INSTRUCTION BOOKLET CARD (Top Right Blueprint Card - Auto Ghost OFF) -->
+    <aside id="instruction-booklet-card" class="instruction-booklet-card interactive" aria-label="Instruction Manual">
+      <div class="booklet-header">
+        <div class="booklet-title-wrap">
+          <span class="booklet-badge">📖 BLUEPRINT</span>
+          <span class="booklet-step-num" id="booklet-step-num">Step 1 / 42</span>
+        </div>
+        <button id="btn-blueprint-hint" class="hint-pulse-btn" title="Pulse target studs for 4 seconds if stuck">
+          <span>💡</span> Hint
+        </button>
+      </div>
+      <div class="booklet-body">
+        <div class="blueprint-canvas-wrap">
+          <canvas id="blueprint-canvas" width="120" height="84"></canvas>
+          <div class="blueprint-grid-lines"></div>
+        </div>
+        <div class="booklet-info">
+          <h3 class="booklet-part-title" id="booklet-part-title">Front Wheel Bogie Assembly</h3>
+          <p class="booklet-part-desc" id="booklet-part-desc">Rummage in bottom tray for this piece. Rotate to align studs before snapping.</p>
+          <div class="booklet-action-row">
+            <span class="kbd-hint-pill">Rotate: <strong>[Q]</strong> / <strong>[E]</strong> or <strong>[Space]</strong></span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOTTOM VISUAL PIECE RUMMAGE TRAY -->
+    <section id="parts-tray" data-alias="toy-parts-tray" class="toy-parts-tray parts-tray interactive" aria-label="Available Building Pieces Tray">
+      <div class="tray-label-bar">
+        <div class="tray-label-left">
+          <span class="toy-box-icon">📦</span> 
+          <strong id="tray-category-title">Parts Box (All)</strong>
+          <span class="tray-hint-sub">Scroll tray • Drag to position • Rotate: [Q] Left / [E] or [Space] Right</span>
+        </div>
+        <div class="tray-label-right">
+          <button id="btn-tray-scroll-left" class="tray-scroll-btn" title="Scroll Left (A)">◀</button>
+          <button id="btn-tray-scroll-right" class="tray-scroll-btn" title="Scroll Right (D)">▶</button>
+          <span class="tray-progress-pill" id="tray-progress-pill">0 / 42 Placed</span>
+        </div>
+      </div>
+
+      <div class="toy-tray-container" id="toy-tray-container">
+        <div class="toy-tray-track" id="toy-tray-track"></div>
+      </div>
+    </section>
+
+    <!-- FREE BUILDER TRAY (Shown when in Free Builder mode) -->
+    <div id="builder-tray-container" class="builder-tray-container interactive" style="display: none;">
+      <div class="builder-tray">
+        <div class="tray-section" id="piece-selector" aria-label="Brick Types">
+          <button class="piece-btn active" data-piece="brick-2x4" title="2x4 Brick (8 studs)">
+            <span class="piece-icon">🧱</span>
+            <span>2x4 Brick</span>
+          </button>
+          <button class="piece-btn" data-piece="brick-2x2" title="2x2 Brick (4 studs)">
+            <span class="piece-icon">🟥</span>
+            <span>2x2 Brick</span>
+          </button>
+          <button class="piece-btn" data-piece="plate-1x2" title="1x2 Plate (thin, 2 studs)">
+            <span class="piece-icon">➖</span>
+            <span>1x2 Plate</span>
+          </button>
+          <button class="piece-btn" data-piece="slope-roof" title="Slope Roof (45° angle)">
+            <span class="piece-icon">📐</span>
+            <span>Slope Roof</span>
+          </button>
+          <button class="piece-btn" data-piece="wheel-axle" title="Wheel Axle (Chassis with wheels)">
+            <span class="piece-icon">⚙️</span>
+            <span>Wheel Axle</span>
+          </button>
+        </div>
+
+        <div class="tray-divider"></div>
+
+        <div class="tray-section color-swatches" id="color-palette" aria-label="Color Palette"></div>
+
+        <div class="tray-divider"></div>
+
+        <div class="tray-section" aria-label="Tools">
+          <button id="btn-rotate-piece" class="tool-btn" title="Rotate 90° (Key: Q / E / Space / R)">
+            <span class="tool-icon">↻</span>
+            <span>Rotate (Q/E)</span>
+          </button>
+          <button id="btn-simulate-physics" class="tool-btn" title="Simulate Real Physics & Gravity / Topple Cantilever (Key: P)">
+            <span class="tool-icon">🎲</span>
+            <span>Simulate (P)</span>
+          </button>
+          <button id="btn-demolish-mode" class="tool-btn" title="Demolish / Eraser Mode (Key: E)">
+            <span class="tool-icon">🔨</span>
+            <span>Demolish</span>
+          </button>
+          <button id="btn-undo-action" class="tool-btn" title="Undo Placement (Ctrl+Z)">
+            <span class="tool-icon">↩️</span>
+            <span>Undo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DRIVE MODE HUD (Shown when in Drive Mode) -->
+    <div id="drive-hud-container" class="drive-hud-container interactive" style="display: none;">
+      <div class="drive-control-bar">
+        <div class="throttle-group" id="throttle-controls">
+          <button class="throttle-btn" data-speed="-1.0">◀ Reverse</button>
+          <button class="throttle-btn active" data-speed="0">⏹ Stop</button>
+          <button class="throttle-btn" data-speed="1.0">Slow Chug 🚂</button>
+          <button class="throttle-btn" data-speed="2.2">Full Steam! 💨</button>
+        </div>
+
+        <div class="tray-divider"></div>
+
+        <button id="btn-horn-whistle" class="horn-whistle-btn" title="Steam Whistle (Key: H or Space)">
+          <span class="horn-icon">📢</span>
+          <span>TOOT TOOT!</span>
+        </button>
+
+        <div class="tray-divider"></div>
+
+        <button id="btn-cam-follow" class="camera-toggle-btn" title="Toggle Train Follow Camera">
+          <span>🎥</span> Follow Train
+        </button>
+      </div>
+    </div>
+
+    <!-- Toast / Hint Notification -->
+    <div id="hint-toast" class="hint-toast">
+      <span id="hint-icon">💡</span>
+      <span id="hint-text">Drag any piece from the bottom tray onto the train to snap it in!</span>
+    </div>
+  </div>
+
+  <!-- Build Complete Celebration Dialog -->
+  <dialog id="celebration-modal" class="custom-modal">
+    <div class="modal-card">
+      <div class="celebration-header">
+        <div class="celebration-badge">🎉 🚂 💨</div>
+        <h2 class="modal-title">Locomotive Fully Assembled!</h2>
+        <p class="celebration-subtitle">All 170 precision interlocking elements have been locked into place!</p>
+      </div>
+      <div class="celebration-stats">
+        <div class="cstat-box">
+          <span class="cstat-val">42</span>
+          <span class="cstat-lbl">Steps Completed</span>
+        </div>
+        <div class="cstat-box">
+          <span class="cstat-val">170</span>
+          <span class="cstat-lbl">ABS Bricks</span>
+        </div>
+        <div class="cstat-box">
+          <span class="cstat-val">100%</span>
+          <span class="cstat-lbl">Build Accuracy</span>
+        </div>
+      </div>
+      <div class="celebration-actions">
+        <button id="btn-start-driving" class="chunky-btn primary large-btn">
+          <span>🕹️</span> Start Driving Train!
+        </button>
+        <button id="btn-celebration-horn" class="chunky-btn horn-btn">
+          <span>📢</span> Blow Horn (Toot Toot!)
+        </button>
+        <button id="btn-close-celebration" class="chunky-btn">
+          <span>🔍</span> Inspect Model
+        </button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Application Logic -->
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
