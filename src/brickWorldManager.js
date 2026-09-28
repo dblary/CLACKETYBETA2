@@ -5,8 +5,7 @@ import * as CANNON from 'cannon-es';
 // 1. CONSTANTS & GRID OCCUPANCY
 // ==========================================
 export const STUD_PITCH = 0.8;      // Standard LDraw horizontal stud unit
-export const PLATE_HEIGHT = 0.32;   // Flat plate vertical height
-export const SNAP_DISTANCE = 1.8;
+export const SNAP_DISTANCE = 2.5; // Balanced kid-friendly snap radius (2.5 units)
 
 export class BrickWorldManager {
   constructor(scene, cannonWorld, sounds, steamParticles) {
@@ -50,47 +49,8 @@ export class BrickWorldManager {
   // 2. THE DOWNWARD SUPPORT & COLLISION RULE
   // ==========================================
   validatePlacement(mesh, targetVoxel, rotationY = this.currentRotationY) {
-    const dims = mesh.userData?.dimensions || { studsX: 2, studsZ: 4, platesY: 3 };
-    const isRotated = Math.abs(Math.sin(rotationY)) > 0.7;
-    const studsX = isRotated ? (dims.studsZ || 2) : (dims.studsX || 2);
-    const studsZ = isRotated ? (dims.studsX || 2) : (dims.studsZ || 2);
-    const platesY = dims.platesY || 1;
-    let hasSolidFoundationBelow = false;
-
-    // Ground or rail baseplate check: Level 0 or 1 provides instant support
-    if (targetVoxel.gy <= 1) {
-      hasSolidFoundationBelow = true;
-    }
-
-    const startX = -Math.floor(studsX / 2);
-    const startZ = -Math.floor(studsZ / 2);
-
-    // Check every voxel slice this brick occupies
-    for (let dy = 0; dy < platesY; dy++) {
-      for (let dx = 0; dx < studsX; dx++) {
-        for (let dz = 0; dz < studsZ; dz++) {
-          const curX = targetVoxel.gx + startX + dx;
-          const curY = targetVoxel.gy + dy;
-          const curZ = targetVoxel.gz + startZ + dz;
-          const checkKey = `${curX},${curY},${curZ}`;
-
-          // Overlap check: Cannot occupy cells that already have solid plastic
-          if (this.occupancyGrid.has(checkKey)) {
-            return false;
-          }
-
-          // Support check for elevated pieces: Check the layer directly underneath (Y - 1)
-          if (targetVoxel.gy > 1) {
-            const foundationKey = `${curX},${targetVoxel.gy - 1},${curZ}`;
-            if (this.occupancyGrid.has(foundationKey)) {
-              hasSolidFoundationBelow = true;
-            }
-          }
-        }
-      }
-    }
-
-    return hasSolidFoundationBelow;
+    // 100% Kid-Friendly: Eliminate frustrating foundation errors during assembly
+    return true;
   }
 
   // ==========================================
@@ -129,26 +89,31 @@ export class BrickWorldManager {
     this.activeDraggedBrick.rotation.y = this.currentRotationY;
   }
 
-  updateDragPosition(groundIntersectionPoint, targetSnapPos = null) {
+  updateDragPosition(groundIntersectionPoint, targetSnapPos = null, targetRotationY = 0) {
     if (!this.activeDraggedBrick || !groundIntersectionPoint) return;
 
-    // Check voxel for snapping
+    // Check distance to target socket in world units
     const testPos = targetSnapPos || groundIntersectionPoint;
+    const snappedWorld = targetSnapPos ? targetSnapPos.clone() : groundIntersectionPoint.clone();
     const voxel = this.worldToVoxel(testPos);
-    const snappedWorld = targetSnapPos ? targetSnapPos.clone() : this.voxelToWorld(voxel.gx, voxel.gy, voxel.gz);
 
-    const isValid = this.validatePlacement(this.activeDraggedBrick, voxel);
     const dist = groundIntersectionPoint.distanceTo(snappedWorld);
 
-    if (isValid && dist < SNAP_DISTANCE) {
-      // MAGNETIC SNAP: Suck into valid studs
-      this.activeDraggedBrick.position.lerp(snappedWorld, 0.45);
-      this.setEmissiveCue(this.activeDraggedBrick, 0x00ff88, 0.7); // subtle green cue
+    if (dist < SNAP_DISTANCE) {
+      // MASSIVE MAGNETIC SNAP: Suck into valid studs
+      this.activeDraggedBrick.position.lerp(snappedWorld, 0.65);
+
+      // Auto-align rotation to match target socket (eliminates need for manual rotation keys)
+      this.currentRotationY = targetRotationY;
+      this.activeDraggedBrick.rotation.y = targetRotationY;
+
+      // Turn target highlight bright glowing green (0x00ff88)
+      this.setEmissiveCue(this.activeDraggedBrick, 0x00ff88, 1.0);
       this.activeDraggedBrick.userData.canSnap = true;
       this.activeDraggedBrick.userData.snapVoxel = voxel;
       this.activeDraggedBrick.userData.snapWorldPos = snappedWorld;
     } else {
-      // FREE HOVER: Follow pointer slightly elevated above board
+      // FREE HOVER: Follow pointer smoothly elevated above board
       this.activeDraggedBrick.position.set(
         groundIntersectionPoint.x,
         groundIntersectionPoint.y + 0.5,
@@ -169,10 +134,9 @@ export class BrickWorldManager {
 
     this.setEmissiveCue(brick, 0x000000, 0);
 
-    // CASE 1: Valid Stud Snap with Support Below -> [Locked to Structure]
-    if (brick.userData.canSnap && brick.userData.snapVoxel) {
-      const v = brick.userData.snapVoxel;
-      const snapPos = brick.userData.snapWorldPos || this.voxelToWorld(v.gx, v.gy, v.gz);
+    // CASE 1: Valid Stud Snap -> [Locked to Structure]
+    if (brick.userData.canSnap) {
+      const snapPos = brick.userData.snapWorldPos || brick.position.clone();
       brick.position.copy(snapPos);
       brick.rotation.y = this.currentRotationY;
 
@@ -182,6 +146,7 @@ export class BrickWorldManager {
       const studsX = isRotated ? (dims.studsZ || 2) : (dims.studsX || 2);
       const studsZ = isRotated ? (dims.studsX || 2) : (dims.studsZ || 2);
       const platesY = dims.platesY || 1;
+      const v = brick.userData.snapVoxel || this.worldToVoxel(snapPos);
       const startX = -Math.floor(studsX / 2);
       const startZ = -Math.floor(studsZ / 2);
 
@@ -205,9 +170,10 @@ export class BrickWorldManager {
       return { status: 'locked', brick, stepIdx };
     }
 
-    // CASE 2: No Support / Dropped in Air -> [Cannon-es Dynamic Fall]
-    const looseItem = this.dropWithPhysics(brick, stepIdx);
-    return { status: 'physics_fall', item: looseItem, stepIdx };
+    // CASE 2: Outside snap target:
+    // ELIMINATE LOOSE DEBRIS: Do NOT drop unplaced pieces under Cannon-es physics!
+    // Instead smoothly spring back into its tray card with soft elastic bounce.
+    return { status: 'return_tray', brick, stepIdx };
   }
 
   // ==========================================

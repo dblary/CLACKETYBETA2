@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Curated ABS Plastic Materials with High-Contrast Readability
-const MAT_WHEELS = new THREE.MeshStandardMaterial({
+const MAT_WHEELS = new THREE.MeshPhysicalMaterial({
   color: 0x222528,
   roughness: 0.32,
   metalness: 0.12,
@@ -10,7 +10,7 @@ const MAT_WHEELS = new THREE.MeshStandardMaterial({
   clearcoatRoughness: 0.2
 });
 
-const MAT_ALLOY_RIM = new THREE.MeshStandardMaterial({
+const MAT_ALLOY_RIM = new THREE.MeshPhysicalMaterial({
   color: 0xc8d0d6,
   roughness: 0.18,
   metalness: 0.72,
@@ -18,7 +18,7 @@ const MAT_ALLOY_RIM = new THREE.MeshStandardMaterial({
   clearcoatRoughness: 0.15
 });
 
-const MAT_CHASSIS_DARK = new THREE.MeshStandardMaterial({
+const MAT_CHASSIS_DARK = new THREE.MeshPhysicalMaterial({
   color: 0x2e3338, // Rich dark slate grey instead of pitch black
   roughness: 0.3,
   metalness: 0.08,
@@ -26,7 +26,7 @@ const MAT_CHASSIS_DARK = new THREE.MeshStandardMaterial({
   clearcoatRoughness: 0.2
 });
 
-const MAT_BODY_RED = new THREE.MeshStandardMaterial({
+const MAT_BODY_RED = new THREE.MeshPhysicalMaterial({
   color: 0xd91e18, // Classic fire red
   roughness: 0.24,
   metalness: 0.0,
@@ -34,7 +34,7 @@ const MAT_BODY_RED = new THREE.MeshStandardMaterial({
   clearcoatRoughness: 0.15
 });
 
-const MAT_YELLOW_ACCENT = new THREE.MeshStandardMaterial({
+const MAT_YELLOW_ACCENT = new THREE.MeshPhysicalMaterial({
   color: 0xf6bb12, // Vibrant warning yellow
   roughness: 0.24,
   metalness: 0.0,
@@ -42,7 +42,7 @@ const MAT_YELLOW_ACCENT = new THREE.MeshStandardMaterial({
   clearcoatRoughness: 0.15
 });
 
-const MAT_ROOF_GREY = new THREE.MeshStandardMaterial({
+const MAT_ROOF_GREY = new THREE.MeshPhysicalMaterial({
   color: 0x505559, // Balanced slate grey for roof & fittings
   roughness: 0.28,
   metalness: 0.06,
@@ -194,6 +194,9 @@ export function loadTrainModel(onProgress) {
         const RAIL_TOP_SURFACE_Y = 0.28;
         model.position.y = -box.min.y * scale + RAIL_TOP_SURFACE_Y;
 
+        trainGroup.scale.set(1, 1, 1);
+        trainGroup.position.set(0, 0, 0);
+        trainGroup.rotation.set(0, 0, 0);
         trainGroup.updateMatrixWorld(true);
         box = new THREE.Box3().setFromObject(trainGroup);
         box.getSize(size);
@@ -260,11 +263,15 @@ export function loadTrainModel(onProgress) {
 
         // 5. Partition into 42 granular building steps (stacking individual plates and blocks)
         const stepCount = GRANULAR_STEPS_METADATA.length; // 42
-        const chunkSize = Math.ceil(pieces.length / stepCount);
         const steps = [];
+        let pieceOffset = 0;
 
         for (let i = 0; i < stepCount; i++) {
-          const chunk = pieces.slice(i * chunkSize, Math.min((i + 1) * chunkSize, pieces.length));
+          const remainingPieces = pieces.length - pieceOffset;
+          const remainingSteps = stepCount - i;
+          const count = Math.max(1, Math.floor(remainingPieces / remainingSteps));
+          const chunk = pieces.slice(pieceOffset, pieceOffset + count);
+          pieceOffset += count;
           if (chunk.length === 0) continue;
 
           const stepMeta = GRANULAR_STEPS_METADATA[i] || {
@@ -307,6 +314,40 @@ export function loadTrainModel(onProgress) {
               m.visible = false;
             });
           });
+
+          if (i === 0) {
+            // Attach wheels to bogie relative coordinate frame inside model
+            const frontBogie = new THREE.Group();
+            frontBogie.name = 'frontBogie';
+            model.add(frontBogie);
+
+            const leftWheel = stepMeshes[0] || new THREE.Group();
+            const rightWheel = stepMeshes[1] || new THREE.Group();
+            leftWheel.name = 'leftWheel';
+            rightWheel.name = 'rightWheel';
+
+            frontBogie.attach(leftWheel);
+            frontBogie.attach(rightWheel);
+            for (let mIdx = 2; mIdx < stepMeshes.length; mIdx++) {
+              frontBogie.attach(stepMeshes[mIdx]);
+            }
+          } else if (i === 1) {
+            // Attach wheels to rear bogie relative coordinate frame inside model
+            const rearBogie = new THREE.Group();
+            rearBogie.name = 'rearBogie';
+            model.add(rearBogie);
+
+            const rearLeftWheel = stepMeshes[0] || new THREE.Group();
+            const rearRightWheel = stepMeshes[1] || new THREE.Group();
+            rearLeftWheel.name = 'rearLeftWheel';
+            rearRightWheel.name = 'rearRightWheel';
+
+            rearBogie.attach(rearLeftWheel);
+            rearBogie.attach(rearRightWheel);
+            for (let mIdx = 2; mIdx < stepMeshes.length; mIdx++) {
+              rearBogie.attach(stepMeshes[mIdx]);
+            }
+          }
 
           trainGroup.updateMatrixWorld(true);
           const stepBox = new THREE.Box3();
@@ -486,54 +527,7 @@ export function createGhostStepPreview(stepData, trainGroup) {
     ghostGroup.add(ghostMesh);
   });
 
-  // Calculate local bounding box for the mounting indicators
-  const ghostBox = new THREE.Box3().setFromObject(ghostGroup);
-  const ghostCenter = new THREE.Vector3();
-  ghostBox.getCenter(ghostCenter);
-  const ghostSize = new THREE.Vector3();
-  ghostBox.getSize(ghostSize);
-
-  // 1. Holographic Mounting Ring at the base of the component
-  const ringRadius = Math.max(ghostSize.x, ghostSize.z) * 0.55 + 0.2;
-  const ringGeom = new THREE.TorusGeometry(ringRadius, 0.05, 12, 36);
-  const ringMat = new THREE.MeshBasicMaterial({
-    color: 0x00ffff,
-    transparent: true,
-    opacity: 0.7,
-    depthWrite: false
-  });
-  const mountRing = new THREE.Mesh(ringGeom, ringMat);
-  mountRing.rotation.x = Math.PI / 2;
-  mountRing.position.set(ghostCenter.x, ghostBox.min.y + 0.05, ghostCenter.z);
-  mountRing.userData = { isMountRing: true, baseRadius: ringRadius };
-  ghostGroup.add(mountRing);
-
-  // 2. Downward-pointing Holographic Arrow floating above the component
-  const arrowGroup = new THREE.Group();
-  arrowGroup.name = 'mount-arrow';
-
-  const coneGeom = new THREE.ConeGeometry(0.3, 0.55, 16);
-  coneGeom.rotateX(Math.PI); // Point downward
-  const arrowMat = new THREE.MeshBasicMaterial({
-    color: 0xffe600, // Vibrant gold/yellow for high visibility
-    transparent: true,
-    opacity: 0.85,
-    depthWrite: false
-  });
-  const cone = new THREE.Mesh(coneGeom, arrowMat);
-  arrowGroup.add(cone);
-
-  const stemGeom = new THREE.CylinderGeometry(0.1, 0.1, 0.35, 16);
-  const stem = new THREE.Mesh(stemGeom, arrowMat);
-  stem.position.y = 0.42;
-  arrowGroup.add(stem);
-
-  const arrowBaseY = ghostBox.max.y + 0.85;
-  arrowGroup.position.set(ghostCenter.x, arrowBaseY, ghostCenter.z);
-  arrowGroup.userData = { isMountArrow: true, baseY: arrowBaseY };
-  ghostGroup.add(arrowGroup);
-
-  // Dynamic snap feedback: Glowing green (0x00ff88) on magnetic proximity, cyan (0x00d4ff) on neutral hover
+  // Dynamic snap feedback for optional step preview: subtle color tinting
   ghostGroup.userData.setGhostState = (canSnap) => {
     ghostGroup.traverse((child) => {
       if (child.isMesh && child.userData?.isGhostStepPart) {
@@ -548,12 +542,6 @@ export function createGhostStepPreview(stepData, trainGroup) {
           child.material.emissiveIntensity = 0.45;
           child.material.opacity = 0.48;
         }
-      }
-      if (child.isMesh && child.userData?.isMountRing) {
-        child.material.color.setHex(canSnap ? 0x00ff88 : 0x00ffff);
-      }
-      if (child.isMesh && (child.parent?.name === 'mount-arrow')) {
-        child.material.color.setHex(canSnap ? 0x00ff88 : 0xffe600);
       }
     });
   };

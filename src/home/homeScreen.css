@@ -1,0 +1,960 @@
+/* ==========================================================================
+   CLACKETY 3D BUILDER - HOME SCREEN OVERHAUL (UIVERSE AESTHETICS)
+   Rich, tactile, vibrant, modern children's toy & UIverse UI design system
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Nunito:wght@800;900&display=swap');
+
+:root {
+  --home-font: 'Fredoka', 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --bezier-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bezier-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --bezier-toy: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Uiverse 3D Gradients */
+  --green-play-top: #4ade80;
+  --green-play-mid: #22c55e;
+  --green-play-bot: #16a34a;
+  --green-play-shadow: #14532d;
+
+  --orange-build-top: #fde047;
+  --orange-build-mid: #f59e0b;
+  --orange-build-bot: #ea580c;
+  --orange-build-shadow: #9a3412;
+
+  --blue-chal-top: #67e8f9;
+  --blue-chal-mid: #0ea5e9;
+  --blue-chal-bot: #0284c7;
+  --blue-chal-shadow: #075985;
+
+  --purple-sett-top: #e879f9;
+  --purple-sett-mid: #a855f7;
+  --purple-sett-bot: #7e22ce;
+  --purple-sett-shadow: #581c87;
+
+  --glass-bg: rgba(255, 255, 255, 0.38);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+}
+
+/* --- Fullscreen Master Container --- */
+.clackety-home-screen {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 90; /* Sits behind TitleScreen overlay (105) */
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: var(--home-font);
+  user-select: none;
+  -webkit-user-select: none;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.45s var(--bezier-smooth), transform 0.45s var(--bezier-smooth);
+  overflow: hidden;
+}
+
+
+.clackety-home-screen.home-hidden {
+  opacity: 0;
+  transform: scale(1.04);
+  pointer-events: none !important;
+  visibility: hidden;
+}
+
+/* All interactive elements */
+.clackety-home-screen button,
+.clackety-home-screen a,
+.clackety-home-screen input,
+.clackety-home-screen select,
+.clackety-home-screen .interactive {
+  pointer-events: auto;
+}
+
+/* ==========================================================================
+   1. FULLSCREEN PARALLAX BACKGROUND & PARTICLES LAYER
+   ========================================================================== */
+.home-background-layer {
+  position: absolute;
+  inset: -30px;
+  background-image: url('/home_bg.jpg');
+  background-size: cover;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+  z-index: -2;
+  transform: scale(1.05) translate(calc(var(--mouse-x, 0) * -16px), calc(var(--mouse-y, 0) * -12px));
+  transition: transform 0.12s ease-out;
+  filter: saturate(1.08) contrast(1.03) brightness(1.02);
+  will-change: transform;
+}
+
+/* Warm sunlight & soft vignette overlay */
+.home-background-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: 
+    radial-gradient(ellipse at 78% 28%, rgba(254, 240, 138, 0.18) 0%, rgba(254, 215, 170, 0.08) 45%, transparent 75%),
+    radial-gradient(circle at center, transparent 40%, rgba(0, 0, 0, 0.22) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18) 0%, transparent 22%, transparent 78%, rgba(0, 0, 0, 0.28) 100%);
+  pointer-events: none;
+}
+
+/* Particle Canvas for Magical Sparkles */
+.home-particles-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   2. TOP NAVIGATION BAR
+   ========================================================================== */
+.home-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: clamp(16px, 2.5vw, 32px) clamp(20px, 3.5vw, 44px);
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+/* --- Left Quick Buttons (Home + Sound) --- */
+.home-left-controls {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* Uiverse 3D Circular Button Base */
+.uiverse-circle-btn {
+  width: clamp(56px, 5.2vw, 70px);
+  height: clamp(56px, 5.2vw, 70px);
+  border-radius: 50%;
+  border: 4px solid #ffffff;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 60%, #0369a1 100%);
+  box-shadow: 
+    0 6px 0 #075985,
+    0 12px 22px rgba(2, 132, 199, 0.42),
+    inset 0 4px 6px rgba(255, 255, 255, 0.75),
+    inset 0 -3px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.14s var(--bezier-toy), box-shadow 0.14s var(--bezier-toy), filter 0.14s ease;
+}
+
+.uiverse-circle-btn::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 14%;
+  width: 72%;
+  height: 42%;
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+.uiverse-circle-btn:hover {
+  transform: translateY(-3px) scale(1.06);
+  box-shadow: 
+    0 9px 0 #075985,
+    0 18px 28px rgba(2, 132, 199, 0.55),
+    inset 0 4px 8px rgba(255, 255, 255, 0.85);
+  filter: brightness(1.08);
+}
+
+.uiverse-circle-btn:active {
+  transform: translateY(4px) scale(0.96);
+  box-shadow: 
+    0 2px 0 #075985,
+    0 4px 10px rgba(2, 132, 199, 0.35),
+    inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+.uiverse-circle-btn.btn-music-toggle {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 60%, #b45309 100%);
+  box-shadow: 
+    0 6px 0 #78350f,
+    0 12px 22px rgba(217, 119, 6, 0.42),
+    inset 0 4px 6px rgba(255, 255, 255, 0.75);
+}
+
+.uiverse-circle-btn.btn-music-toggle:hover {
+  box-shadow: 
+    0 9px 0 #78350f,
+    0 18px 28px rgba(217, 119, 6, 0.55),
+    inset 0 4px 8px rgba(255, 255, 255, 0.85);
+}
+
+.uiverse-circle-btn.btn-music-toggle:active {
+  box-shadow: 
+    0 2px 0 #78350f,
+    0 4px 10px rgba(217, 119, 6, 0.35);
+}
+
+.uiverse-icon-svg {
+  width: 50%;
+  height: 50%;
+  fill: #ffffff;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
+  transition: transform 0.2s var(--bezier-bounce);
+}
+
+.uiverse-circle-btn:hover .uiverse-icon-svg {
+  transform: scale(1.12);
+}
+
+/* Sound wave animated equalizer inside audio button */
+.sound-bars-wrap {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 20px;
+}
+
+.sound-bar {
+  width: 4px;
+  background: #ffffff;
+  border-radius: 99px;
+  height: 8px;
+  animation: barBounce 0.8s ease-in-out infinite alternate;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.sound-bar:nth-child(1) { height: 10px; animation-delay: 0.1s; }
+.sound-bar:nth-child(2) { height: 18px; animation-delay: 0.3s; }
+.sound-bar:nth-child(3) { height: 14px; animation-delay: 0.5s; }
+.sound-bar:nth-child(4) { height: 8px; animation-delay: 0.2s; }
+
+.btn-music-toggle.muted .sound-bar {
+  animation: none;
+  height: 4px;
+  opacity: 0.6;
+}
+
+@keyframes barBounce {
+  0% { height: 6px; }
+  100% { height: 20px; }
+}
+
+/* --- Center: Chunky 3D Clackety 3D Builder Logo --- */
+.home-logo-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.clackety-logo-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  cursor: pointer;
+  animation: logoFloat 4s ease-in-out infinite alternate;
+  transition: transform 0.25s var(--bezier-bounce);
+}
+
+.clackety-logo-wrap:hover {
+  transform: scale(1.05) rotate(-1.5deg);
+}
+
+@keyframes logoFloat {
+  0% { transform: translateY(0px); }
+  100% { transform: translateY(-7px); }
+}
+
+/* Decorative 3D Lego Studs atop the logo */
+.logo-brick-studs {
+  display: flex;
+  gap: clamp(6px, 0.9vw, 12px);
+  margin-bottom: -10px;
+  z-index: 2;
+}
+
+.stud-mini {
+  width: clamp(14px, 1.4vw, 20px);
+  height: clamp(8px, 0.8vw, 12px);
+  border-radius: 6px 6px 3px 3px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35), inset 0 2px 2px rgba(255, 255, 255, 0.7);
+}
+
+.stud-mini.red { background: #ef4444; }
+.stud-mini.yellow { background: #facc15; }
+.stud-mini.blue { background: #0284c7; }
+.stud-mini.green { background: #22c55e; }
+
+/* 3D Toy Main Text "Clackety" */
+.logo-text-clackety {
+  margin: 0;
+  font-size: clamp(2.2rem, 4.2vw, 4.2rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #fffae6;
+  text-transform: uppercase;
+  -webkit-text-stroke: clamp(2px, 0.3vw, 4px) #854d0e;
+  text-shadow:
+    0 2px 0 #b45309,
+    0 4px 0 #9a3412,
+    0 6px 0 #7c2d12,
+    0 8px 0 #451a03,
+    0 14px 24px rgba(0, 0, 0, 0.45);
+  background: linear-gradient(180deg, #ffffff 0%, #fef08a 40%, #f59e0b 80%, #ea580c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+}
+
+/* Lower Ribbon "3D BUILDER" */
+.logo-banner-builder {
+  margin-top: -4px;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 60%, #0369a1 100%);
+  color: #ffffff;
+  padding: clamp(3px, 0.5vw, 6px) clamp(16px, 1.8vw, 26px);
+  border-radius: 999px;
+  border: 3px solid #ffffff;
+  font-size: clamp(0.75rem, 1.1vw, 1.15rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  box-shadow: 
+    0 4px 0 #075985,
+    0 8px 18px rgba(2, 132, 199, 0.4),
+    inset 0 2px 3px rgba(255, 255, 255, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Right: Uiverse Profile Capsule & Stars --- */
+.home-right-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.uiverse-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 3.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 6px 16px 6px 6px;
+  box-shadow: 
+    0 6px 0 rgba(0, 0, 0, 0.15),
+    0 12px 24px rgba(0, 0, 0, 0.16),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: transform 0.18s var(--bezier-toy), box-shadow 0.18s var(--bezier-toy), background 0.2s ease;
+}
+
+.uiverse-profile-card:hover {
+  transform: translateY(-2px) scale(1.04);
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: 
+    0 8px 0 rgba(0, 0, 0, 0.18),
+    0 16px 30px rgba(0, 0, 0, 0.22);
+}
+
+.profile-avatar-wrap {
+  width: clamp(40px, 3.8vw, 48px);
+  height: clamp(40px, 3.8vw, 48px);
+  border-radius: 50%;
+  background: linear-gradient(180deg, #facc15 0%, #eab308 60%, #ca8a04 100%);
+  border: 3px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.profile-stats-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-name {
+  font-size: clamp(0.85rem, 1.1vw, 1.05rem);
+  font-weight: 900;
+  color: #1e293b;
+  line-height: 1.1;
+}
+
+.profile-star-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #854d0e;
+  font-size: clamp(0.75rem, 0.95vw, 0.95rem);
+  font-weight: 900;
+}
+
+.star-spin-icon {
+  font-size: 1.05rem;
+  animation: starPulse 2.5s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes starPulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.25) rotate(15deg); }
+}
+
+/* ==========================================================================
+   3. MAIN INTERACTIVE MENU (UIVERSE 3D BUTTONS)
+   ========================================================================== */
+.home-menu-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-right: clamp(24px, 4.5vw, 64px);
+  margin-top: auto;
+  margin-bottom: auto;
+  gap: clamp(14px, 1.8vh, 22px);
+  z-index: 10;
+}
+
+/* --- UIVERSE PRIMARY HERO PLAY BUTTON --- */
+.uiverse-btn-play {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: clamp(240px, 20vw, 320px);
+  height: clamp(74px, 8.5vh, 94px);
+  border-radius: 999px;
+  border: 5px solid #ffffff;
+  background: linear-gradient(180deg, var(--green-play-top) 0%, var(--green-play-mid) 40%, var(--green-play-bot) 100%);
+  color: #ffffff;
+  font-family: var(--home-font);
+  font-size: clamp(1.8rem, 2.4vw, 2.5rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 
+    0 10px 0 var(--green-play-shadow),
+    0 20px 36px rgba(22, 163, 74, 0.55),
+    inset 0 4px 6px rgba(255, 255, 255, 0.8),
+    inset 0 -4px 6px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s var(--bezier-toy), box-shadow 0.12s var(--bezier-toy), filter 0.15s ease;
+  overflow: visible;
+  animation: playPulseAura 3s infinite ease-in-out;
+}
+
+/* Glossy glass reflection on button top */
+.uiverse-btn-play::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 12%;
+  width: 76%;
+  height: 42%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+/* Ambient glowing aura ring */
+@keyframes playPulseAura {
+  0%, 100% {
+    box-shadow: 
+      0 10px 0 var(--green-play-shadow),
+      0 20px 36px rgba(22, 163, 74, 0.55),
+      0 0 0 0px rgba(74, 222, 128, 0.5),
+      inset 0 4px 6px rgba(255, 255, 255, 0.8);
+  }
+  50% {
+    box-shadow: 
+      0 10px 0 var(--green-play-shadow),
+      0 24px 44px rgba(22, 163, 74, 0.7),
+      0 0 0 14px rgba(74, 222, 128, 0),
+      inset 0 4px 6px rgba(255, 255, 255, 0.8);
+  }
+}
+
+.uiverse-btn-play:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 
+    0 14px 0 var(--green-play-shadow),
+    0 28px 48px rgba(22, 163, 74, 0.68),
+    inset 0 6px 10px rgba(255, 255, 255, 0.9);
+  filter: brightness(1.06);
+}
+
+.uiverse-btn-play:active {
+  transform: translateY(6px) scale(0.97);
+  box-shadow: 
+    0 4px 0 var(--green-play-shadow),
+    0 8px 16px rgba(22, 163, 74, 0.4),
+    inset 0 2px 4px rgba(0, 0, 0, 0.35);
+  animation: none;
+}
+
+/* Animated Play Triangle in Circle */
+.play-icon-disc {
+  width: clamp(40px, 4vw, 50px);
+  height: clamp(40px, 4vw, 50px);
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s var(--bezier-bounce);
+}
+
+.uiverse-btn-play:hover .play-icon-disc {
+  transform: scale(1.15) rotate(8deg);
+}
+
+.play-triangle-svg {
+  width: 55%;
+  height: 55%;
+  fill: #16a34a;
+  margin-left: 3px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2));
+}
+
+.sparkle-icon {
+  font-size: 1.4rem;
+  animation: sparkleTwinkle 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes sparkleTwinkle {
+  0% { transform: scale(0.85) rotate(0deg); opacity: 0.8; }
+  100% { transform: scale(1.2) rotate(18deg); opacity: 1; }
+}
+
+/* --- UIVERSE SECONDARY 3D ACTION BUTTONS --- */
+.uiverse-btn-secondary {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  width: clamp(210px, 17.5vw, 275px);
+  height: clamp(56px, 6.8vh, 68px);
+  border-radius: 999px;
+  border: 4px solid #ffffff;
+  color: #ffffff;
+  font-family: var(--home-font);
+  font-size: clamp(1.15rem, 1.45vw, 1.5rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  padding: 0 20px;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.12s var(--bezier-toy), box-shadow 0.12s var(--bezier-toy), filter 0.14s ease;
+  overflow: hidden;
+}
+
+.uiverse-btn-secondary::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 10%;
+  width: 80%;
+  height: 40%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0) 100%);
+  pointer-events: none;
+}
+
+/* 1. My Builds: Orange */
+.btn-style-mybuilds {
+  background: linear-gradient(180deg, var(--orange-build-top) 0%, var(--orange-build-mid) 45%, var(--orange-build-bot) 100%);
+  box-shadow: 
+    0 7px 0 var(--orange-build-shadow),
+    0 14px 26px rgba(234, 88, 12, 0.45),
+    inset 0 3px 5px rgba(255, 255, 255, 0.75);
+}
+
+.btn-style-mybuilds:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 
+    0 10px 0 var(--orange-build-shadow),
+    0 20px 32px rgba(234, 88, 12, 0.55),
+    inset 0 4px 8px rgba(255, 255, 255, 0.85);
+  filter: brightness(1.06);
+}
+
+.btn-style-mybuilds:active {
+  transform: translateY(4px) scale(0.97);
+  box-shadow: 
+    0 3px 0 var(--orange-build-shadow),
+    0 6px 12px rgba(234, 88, 12, 0.35);
+}
+
+/* 2. Challenges: Cyan / Sky Blue */
+.btn-style-challenges {
+  background: linear-gradient(180deg, var(--blue-chal-top) 0%, var(--blue-chal-mid) 45%, var(--blue-chal-bot) 100%);
+  box-shadow: 
+    0 7px 0 var(--blue-chal-shadow),
+    0 14px 26px rgba(2, 132, 199, 0.45),
+    inset 0 3px 5px rgba(255, 255, 255, 0.75);
+}
+
+.btn-style-challenges:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 
+    0 10px 0 var(--blue-chal-shadow),
+    0 20px 32px rgba(2, 132, 199, 0.55),
+    inset 0 4px 8px rgba(255, 255, 255, 0.85);
+  filter: brightness(1.06);
+}
+
+.btn-style-challenges:active {
+  transform: translateY(4px) scale(0.97);
+  box-shadow: 
+    0 3px 0 var(--blue-chal-shadow),
+    0 6px 12px rgba(2, 132, 199, 0.35);
+}
+
+/* 3. Settings: Violet / Purple */
+.btn-style-settings {
+  background: linear-gradient(180deg, var(--purple-sett-top) 0%, var(--purple-sett-mid) 45%, var(--purple-sett-bot) 100%);
+  box-shadow: 
+    0 7px 0 var(--purple-sett-shadow),
+    0 14px 26px rgba(126, 34, 206, 0.45),
+    inset 0 3px 5px rgba(255, 255, 255, 0.75);
+}
+
+.btn-style-settings:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 
+    0 10px 0 var(--purple-sett-shadow),
+    0 20px 32px rgba(126, 34, 206, 0.55),
+    inset 0 4px 8px rgba(255, 255, 255, 0.85);
+  filter: brightness(1.06);
+}
+
+.btn-style-settings:active {
+  transform: translateY(4px) scale(0.97);
+  box-shadow: 
+    0 3px 0 var(--purple-sett-shadow),
+    0 6px 12px rgba(126, 34, 206, 0.35);
+}
+
+/* Secondary Button Icon Wrapper */
+.btn-sec-icon-wrap {
+  width: clamp(34px, 3.4vw, 42px);
+  height: clamp(34px, 3.4vw, 42px);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.4), 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s var(--bezier-bounce);
+}
+
+.uiverse-btn-secondary:hover .btn-sec-icon-wrap {
+  transform: scale(1.15) rotate(6deg);
+}
+
+.btn-sec-icon-svg {
+  width: 58%;
+  height: 58%;
+  fill: #ffffff;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+}
+
+.btn-label-text {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* ==========================================================================
+   4. BOTTOM QUICK BANNER & STATS
+   ========================================================================== */
+.home-bottom-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 24px clamp(16px, 2.5vh, 28px);
+  z-index: 10;
+}
+
+.uiverse-prompt-capsule {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 3px solid rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 8px 24px;
+  color: #1e293b;
+  font-size: clamp(0.9rem, 1.15vw, 1.15rem);
+  font-weight: 800;
+  box-shadow: 
+    0 6px 0 rgba(0, 0, 0, 0.12),
+    0 12px 24px rgba(0, 0, 0, 0.14),
+    inset 0 2px 3px rgba(255, 255, 255, 0.8);
+  animation: bannerGlow 4s infinite alternate ease-in-out;
+}
+
+@keyframes bannerGlow {
+  0% { transform: translateY(0); box-shadow: 0 6px 0 rgba(0,0,0,0.12), 0 12px 24px rgba(0,0,0,0.14); }
+  100% { transform: translateY(-3px); box-shadow: 0 9px 0 rgba(0,0,0,0.14), 0 16px 28px rgba(0,0,0,0.2); }
+}
+
+/* ==========================================================================
+   5. UIVERSE MODAL DIALOGS (MY BUILDS, CHALLENGES, SETTINGS)
+   ========================================================================== */
+.uiverse-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.uiverse-modal-backdrop.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.uiverse-modal-window {
+  width: min(92vw, 620px);
+  max-height: 85vh;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  border-radius: 32px;
+  border: 5px solid #ffffff;
+  box-shadow: 
+    0 12px 0 rgba(0, 0, 0, 0.15),
+    0 24px 60px rgba(0, 0, 0, 0.35),
+    inset 0 2px 4px rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.92) translateY(20px);
+  transition: transform 0.3s var(--bezier-bounce);
+}
+
+.uiverse-modal-backdrop.active .uiverse-modal-window {
+  transform: scale(1) translateY(0);
+}
+
+/* Modal Header */
+.uiverse-modal-header {
+  padding: 18px 24px;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 4px solid rgba(0, 0, 0, 0.1);
+}
+
+.modal-header-mybuilds {
+  background: linear-gradient(180deg, #f59e0b 0%, #ea580c 100%);
+}
+
+.modal-header-settings {
+  background: linear-gradient(180deg, #a855f7 0%, #7e22ce 100%);
+}
+
+.uiverse-modal-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.uiverse-modal-close-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #ffffff;
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.uiverse-modal-close-btn:hover {
+  transform: scale(1.12) rotate(90deg);
+  background: #ef4444;
+}
+
+/* Modal Body */
+.uiverse-modal-content {
+  padding: 22px 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 60vh;
+}
+
+/* Item Cards inside Modals */
+.uiverse-card-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: 3px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 4px 0 #cbd5e1;
+  transition: transform 0.15s var(--bezier-toy), border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.uiverse-card-item:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  box-shadow: 0 6px 0 #0284c7, 0 10px 18px rgba(2, 132, 199, 0.2);
+}
+
+.card-item-info h4 {
+  margin: 0 0 4px 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #1e293b;
+}
+
+.card-item-info p {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+/* Modal Action Button */
+.uiverse-modal-action-btn {
+  padding: 10px 22px;
+  border-radius: 999px;
+  border: 3px solid #ffffff;
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+  color: #ffffff;
+  font-family: var(--home-font);
+  font-size: 1rem;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 4px 0 #14532d, 0 6px 12px rgba(22, 163, 74, 0.35);
+  transition: transform 0.12s var(--bezier-toy), box-shadow 0.12s var(--bezier-toy);
+}
+
+.uiverse-modal-action-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 0 #14532d, 0 10px 18px rgba(22, 163, 74, 0.45);
+}
+
+.uiverse-modal-action-btn:active {
+  transform: translateY(3px) scale(0.97);
+  box-shadow: 0 1px 0 #14532d;
+}
+
+/* Settings Sliders & Rows */
+.setting-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: #f8fafc;
+  border: 3px solid #e2e8f0;
+  border-radius: 20px;
+}
+
+.setting-item-label {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #1e293b;
+}
+
+.uiverse-range-slider {
+  -webkit-appearance: none;
+  width: 150px;
+  height: 12px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  outline: none;
+  border: 2px solid #cbd5e1;
+}
+
+.uiverse-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #a855f7 0%, #7e22ce 100%);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   RESPONSIVE DESIGN (TABLETS & PHONES)
+   ========================================================================== */
+@media (max-width: 900px) {
+  .home-menu-layout {
+    padding-right: 24px;
+  }
+  .uiverse-btn-play {
+    width: 240px;
+    height: 72px;
+    font-size: 1.8rem;
+  }
+  .uiverse-btn-secondary {
+    width: 210px;
+    height: 56px;
+    font-size: 1.15rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .home-top-bar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .home-left-controls, .home-right-controls {
+    justify-content: center;
+  }
+  .home-menu-layout {
+    align-items: center;
+    padding-right: 0;
+    margin-bottom: 20px;
+  }
+}

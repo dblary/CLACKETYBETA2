@@ -21,12 +21,18 @@ class SoundEngine {
     this.currentTrackIndex = 0;
     this.bgmAudio = null;
     this.isMusicPlaying = false;
-    this.isMusicEnabled = true;
-    this.bgmTempo = 0.9; // 90% Tempo as requested
+    this.isMusicEnabled = false; // Disabled by default - only game sound effects active
+    this.bgmTempo = 0.9;
     this.bgmVolume = 0.28;
 
-    // Authentic Recorded LEGO Piece SFX from /music/ folder
-    this.legoPressedAudioUrl = '/music/freesound_community-lego-piece-pressed-105360.mp3';
+    // Click SFX placed in /music/ folder (file name: click / click.wav)
+    this.clickUrl = '/music/click';
+    this.candidateUrls = [
+      '/music/click',
+      '/music/click.wav',
+      '/music/click.mp3',
+      '/music/freesound_community-lego-piece-pressed-105360.mp3'
+    ];
     this.legoPressedBuffer = null;
     this.legoAudioFallback = null;
     this.isLoadingLegoSound = false;
@@ -55,50 +61,59 @@ class SoundEngine {
   }
 
   /**
-   * Preload and decode the authentic LEGO piece sound from /music/
+   * Preload and decode the click sound from /music/click (or candidates)
    */
   loadLegoSound() {
     if (this.legoPressedBuffer || this.isLoadingLegoSound) return;
     this.isLoadingLegoSound = true;
 
+    // Fallback audio element
     try {
-      this.legoAudioFallback = new Audio(this.legoPressedAudioUrl);
-      this.legoAudioFallback.volume = 0.95;
+      this.legoAudioFallback = new Audio('/music/click.wav');
+      this.legoAudioFallback.volume = 1.0;
       this.legoAudioFallback.preload = 'auto';
     } catch (e) {}
 
-    if (typeof fetch === 'function') {
-      fetch(this.legoPressedAudioUrl)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.arrayBuffer();
-        })
-        .then((arrayBuffer) => {
+    const tryLoadCandidates = async () => {
+      for (const url of this.candidateUrls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const arrayBuffer = await res.arrayBuffer();
           if (!this.ctx) {
             const AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (AudioCtx) this.ctx = new AudioCtx();
           }
           if (this.ctx) {
-            return this.ctx.decodeAudioData(arrayBuffer);
+            const decoded = await this.ctx.decodeAudioData(arrayBuffer.slice(0));
+            if (decoded) {
+              this.legoPressedBuffer = decoded;
+              this.isLoadingLegoSound = false;
+              try {
+                this.legoAudioFallback = new Audio(url);
+                this.legoAudioFallback.volume = 1.0;
+                this.legoAudioFallback.preload = 'auto';
+              } catch (e) {}
+              return;
+            }
           }
-        })
-        .then((decoded) => {
-          if (decoded) {
-            this.legoPressedBuffer = decoded;
-          }
-          this.isLoadingLegoSound = false;
-        })
-        .catch(() => {
-          this.isLoadingLegoSound = false;
-        });
+        } catch (err) {
+          // continue to next candidate
+        }
+      }
+      this.isLoadingLegoSound = false;
+    };
+
+    if (typeof fetch === 'function') {
+      tryLoadCandidates();
     }
   }
 
   /**
-   * Authentic Recorded LEGO Piece Pressed Sound
-   * Triggered when a LEGO piece is pressed, snapped, clicked, or placed.
+   * Authentic Recorded LEGO Piece Pressed / Click Sound
+   * Triggered when two pieces are correctly placed.
    */
-  playLegoPressed(volume = 0.95, pitchRate = 1.0) {
+  playLegoPressed(volume = 1.0, pitchRate = 1.0) {
     if (this.isMuted) return;
     this.init();
 
@@ -111,8 +126,8 @@ class SoundEngine {
         const t = this.ctx.currentTime;
         const source = this.ctx.createBufferSource();
         source.buffer = this.legoPressedBuffer;
-        // Subtle micro-pitch variation (0.97 - 1.03) to prevent machine-gun effect
-        const rate = pitchRate * (0.97 + Math.random() * 0.06);
+        // Subtle micro-pitch variation (0.98 - 1.02) to prevent machine-gun effect
+        const rate = pitchRate * (0.98 + Math.random() * 0.04);
         source.playbackRate.setValueAtTime(rate, t);
 
         const gain = this.ctx.createGain();
@@ -128,11 +143,16 @@ class SoundEngine {
     if (this.legoAudioFallback) {
       try {
         const clone = this.legoAudioFallback.cloneNode();
+        clone.currentTime = 0;
         clone.volume = Math.min(1.0, volume);
         clone.playbackRate = pitchRate;
         clone.play().catch(() => {});
       } catch (e) {}
     }
+  }
+
+  playClick(volume = 1.0, pitchRate = 1.0) {
+    this.playLegoPressed(volume, pitchRate);
   }
 
   /**
@@ -290,17 +310,99 @@ class SoundEngine {
     return this.isMuted;
   }
 
+  // =========================================================
+  // ONLY CLICK SFX PLACED IN MUSIC FOLDER IS ACTIVE
+  // All other synthesized sounds and sound effects are silenced
+  // =========================================================
+
   /**
-   * LEGO ABS Plastic Snap Sound - Uses MP3 SFX exclusively
+   * Only active SFX: Plays click SFX from /music/ folder when two pieces are correctly placed
    */
-  playSnap() {
-    if (this.isMuted) return;
-    this.playPlasticThwackSnap();
+  playDingClack() {
+    this.playLegoPressed(1.0, 1.0);
   }
 
   /**
-   * Lighter tick sound when hovering over valid studs / entering magnetic snap zone
+   * Sharp, tactile plastic snap sound effect (*clack!*) on valid stud connection
    */
+  playPlasticThwackSnap() {
+    this.playClack();
+  }
+
+  playSnap() {
+    this.playClack();
+  }
+
+  playClack() {
+    if (this.isMuted) return;
+    this.init();
+    this.playLegoPressed(1.0, 1.02 + Math.random() * 0.08);
+
+    if (this.ctx) {
+      try {
+        const t = this.ctx.currentTime;
+        // Resonant dual-tone plastic click transient
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1600 + Math.random() * 200, t);
+        osc.frequency.exponentialRampToValueAtTime(280, t + 0.035);
+
+        gain.gain.setValueAtTime(0.7, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.045);
+
+        // Click transient noise tick
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.015);
+        const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'highpass';
+        noiseFilter.frequency.setValueAtTime(1200, t);
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.5, t);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.ctx.destination);
+        noise.start(t);
+      } catch (e) {}
+    }
+  }
+
+  playPop(pitch = 1.0, volume = 0.35) {
+    if (this.isMuted) return;
+    this.init();
+    if (this.ctx) {
+      try {
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime((440 + Math.random() * 60) * pitch, t);
+        osc.frequency.exponentialRampToValueAtTime((880 + Math.random() * 80) * pitch, t + 0.05);
+
+        gain.gain.setValueAtTime(volume, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.065);
+      } catch (e) {}
+    }
+  }
+
   playHoverTick() {
     if (this.isMuted) return;
     this.init();
@@ -310,396 +412,51 @@ class SoundEngine {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(1400, t);
-        osc.frequency.exponentialRampToValueAtTime(750, t + 0.035);
-        gain.gain.setValueAtTime(0.18, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.04);
-        return;
-      } catch (e) {}
-    }
-    this.playPop();
-  }
+        osc.frequency.setValueAtTime(1200, t);
+        osc.frequency.exponentialRampToValueAtTime(600, t + 0.015);
 
-  /**
-   * High-frequency plastic friction scrape when moving across studs
-   */
-  playStudScrape() {
-    if (this.isMuted) return;
-    this.init();
-    if (this.ctx) {
-      try {
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(2200, t);
-        osc.frequency.exponentialRampToValueAtTime(1100, t + 0.045);
-        gain.gain.setValueAtTime(0.09, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+        gain.gain.setValueAtTime(0.15, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+
         osc.connect(gain);
         gain.connect(this.ctx.destination);
         osc.start(t);
-        osc.stop(t + 0.05);
-        return;
+        osc.stop(t + 0.02);
       } catch (e) {}
     }
   }
 
-  /**
-   * Deep thwack-snap sound when releasing piece into place
-   */
-  playPlasticThwackSnap() {
-    if (this.isMuted) return;
-    // Play recorded sample for authentic LEGO ABS click
-    this.playLegoPressed(1.0, 0.98);
-
-    // Complement with deep physical acoustic snap body
-    this.init();
-    if (this.ctx) {
-      try {
-        const t = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(220, t);
-        osc.frequency.exponentialRampToValueAtTime(45, t + 0.09);
-        gain.gain.setValueAtTime(0.42, t);
-        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.1);
-      } catch (e) {}
-    }
-  }
-
-
-  /**
-   * Toy Pop / Demolish Sound
-   */
-  playPop() {
-    if (this.isMuted) return;
-    this.playLegoPressed(0.85, 1.08);
-  }
-
-  /**
-   * LEGO Clutch Clack Sound - Uses MP3 SFX exclusively
-   */
-  playClack() {
-    if (this.isMuted) return;
-    this.playLegoPressed(1.0, 1.02);
-  }
-
-  /**
-   * Dull plastic tap/rejection sound for invalid placement
-   */
-  playReject() {
-    if (this.isMuted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(150, t);
-    osc.frequency.exponentialRampToValueAtTime(55, t + 0.12);
-
-    gain.gain.setValueAtTime(0.35, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(t);
-    osc.stop(t + 0.13);
-  }
-
-  /**
-   * Blunt plastic collision knock sound for rigid-body collision rejection
-   */
-  playCollisionKnock() {
-    if (this.isMuted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-
-    // 1. Muffled bandpass impulse click (hard ABS knock)
-    if (this.noiseBuffer) {
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.setValueAtTime(850, t);
-      filter.Q.setValueAtTime(2.8, t);
-
-      const noiseGain = this.ctx.createGain();
-      noiseGain.gain.setValueAtTime(0.5, t);
-      noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-
-      noise.connect(filter);
-      filter.connect(noiseGain);
-      noiseGain.connect(this.ctx.destination);
-
-      noise.start(t);
-      noise.stop(t + 0.06);
-    }
-
-    // 2. Low blunt plastic body resonance
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(220, t);
-    osc.frequency.exponentialRampToValueAtTime(45, t + 0.09);
-
-    gain.gain.setValueAtTime(0.45, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
-
-    osc.connect(gain);
-    gain.connect(this.ctx.destination);
-
-    osc.start(t);
-    osc.stop(t + 0.1);
-  }
-
-  /**
-   * Plastic tumble and rattle sound - Uses MP3 SFX exclusively
-   */
-  playPlasticRattle(intensity = 1.0) {
-    if (this.isMuted) return;
-    this.playLegoFalled(intensity);
-  }
-
-  /**
-   * Dramatic Demolish / Crash Explosion Sound
-   */
-  playCrash() {
-    if (this.isMuted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-
-    // 1. Initial explosive impact burst
-    if (this.noiseBuffer) {
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(3500, t);
-      filter.frequency.exponentialRampToValueAtTime(400, t + 0.35);
-
-      const gain = this.ctx.createGain();
-      gain.gain.setValueAtTime(0.7, t);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      noise.start(t);
-      noise.stop(t + 0.5);
-    }
-
-    // 2. Heavy bass thud
-    const bassOsc = this.ctx.createOscillator();
-    const bassGain = this.ctx.createGain();
-    bassOsc.type = 'sine';
-    bassOsc.frequency.setValueAtTime(180, t);
-    bassOsc.frequency.exponentialRampToValueAtTime(35, t + 0.3);
-
-    bassGain.gain.setValueAtTime(0.65, t);
-    bassGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-
-    bassOsc.connect(bassGain);
-    bassGain.connect(this.ctx.destination);
-
-    bassOsc.start(t);
-    bassOsc.stop(t + 0.36);
-
-    // 3. Cascading plastic debris scattering
-    for (let i = 0; i < 6; i++) {
-      setTimeout(() => {
-        this.playPlasticRattle(0.8 - i * 0.1);
-      }, 50 + i * 45);
-    }
-  }
-
-  /**
-   * Authentic Two-Tone Steam Train Whistle Chord
-   * Two main tones: 587 Hz (D5) and 880 Hz (A5)
-   * With subtle harmonics, vibrato LFO, and realistic steam envelope
-   */
-  playWhistle(duration = 0.8) {
-    if (this.isMuted) return;
-    this.init();
-    if (!this.ctx) return;
-
-    const t = this.ctx.currentTime;
-    const masterGain = this.ctx.createGain();
-    masterGain.gain.setValueAtTime(0.001, t);
-    masterGain.gain.linearRampToValueAtTime(0.45, t + 0.06);
-    masterGain.gain.setValueAtTime(0.45, t + duration - 0.12);
-    masterGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    masterGain.connect(this.ctx.destination);
-
-    // Vibrato LFO
-    const lfo = this.ctx.createOscillator();
-    const lfoGain = this.ctx.createGain();
-    lfo.frequency.setValueAtTime(5.5, t); // 5.5 Hz vibrato
-    lfoGain.gain.setValueAtTime(7.0, t);
-    lfo.connect(lfoGain);
-    lfo.start(t);
-    lfo.stop(t + duration);
-
-    // Steam whistle frequencies (D5: 587 Hz, A5: 880 Hz) + slight detuning for rich acoustic beating
-    const frequencies = [587.33, 589.5, 880.0, 882.5, 1174.6];
-    const amplitudes = [0.35, 0.2, 0.35, 0.2, 0.1];
-
-    frequencies.forEach((freq, idx) => {
-      const osc = this.ctx.createOscillator();
-      const oscGain = this.ctx.createGain();
-      osc.type = idx === 4 ? 'sine' : 'sawtooth';
-      osc.frequency.setValueAtTime(freq, t);
-
-      // Connect vibrato to whistle frequency
-      lfoGain.connect(osc.frequency);
-
-      // Mild low-pass filter for smooth steam acoustic tone
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(2400, t);
-
-      oscGain.gain.setValueAtTime(amplitudes[idx], t);
-
-      osc.connect(filter);
-      filter.connect(oscGain);
-      oscGain.connect(masterGain);
-
-      osc.start(t);
-      osc.stop(t + duration);
-    });
-
-    // Add gentle background steam hiss
-    if (this.noiseBuffer) {
-      const steamNoise = this.ctx.createBufferSource();
-      steamNoise.buffer = this.noiseBuffer;
-      const steamFilter = this.ctx.createBiquadFilter();
-      steamFilter.type = 'bandpass';
-      steamFilter.frequency.setValueAtTime(1400, t);
-      steamFilter.Q.setValueAtTime(1.8, t);
-
-      const steamGain = this.ctx.createGain();
-      steamGain.gain.setValueAtTime(0.12, t);
-      steamGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-
-      steamNoise.connect(steamFilter);
-      steamFilter.connect(steamGain);
-      steamGain.connect(masterGain);
-
-      steamNoise.start(t);
-      steamNoise.stop(t + duration);
-    }
-  }
-
-  /**
-   * Double "TOOT TOOT!" sequence
-   */
-  playDoubleToot() {
-    this.playWhistle(0.35);
-    setTimeout(() => {
-      this.playWhistle(0.65);
-    }, 420);
-  }
-
-  /**
-   * Single chug beat ("chuff")
-   */
-  triggerChugBeat(accent = false) {
-    if (this.isMuted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-
-    // Steam chuff noise
-    if (this.noiseBuffer) {
-      const noise = this.ctx.createBufferSource();
-      noise.buffer = this.noiseBuffer;
-
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      const centerFreq = accent ? 750 : 580;
-      filter.frequency.setValueAtTime(centerFreq, t);
-      filter.frequency.exponentialRampToValueAtTime(260, t + 0.12);
-      filter.Q.setValueAtTime(2.2, t);
-
-      const gain = this.ctx.createGain();
-      const peakVol = accent ? 0.32 : 0.2;
-      gain.gain.setValueAtTime(0.001, t);
-      gain.gain.linearRampToValueAtTime(peakVol, t + 0.015);
-      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.14);
-
-      noise.connect(filter);
-      filter.connect(gain);
-      gain.connect(this.ctx.destination);
-
-      noise.start(t);
-      noise.stop(t + 0.15);
-    }
-
-    // Low iron click-clack rail resonance
-    const clack = this.ctx.createOscillator();
-    const clackGain = this.ctx.createGain();
-    clack.type = 'triangle';
-    clack.frequency.setValueAtTime(accent ? 130 : 95, t);
-    clack.frequency.exponentialRampToValueAtTime(45, t + 0.05);
-
-    clackGain.gain.setValueAtTime(accent ? 0.22 : 0.12, t);
-    clackGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
-
-    clack.connect(clackGain);
-    clackGain.connect(this.ctx.destination);
-
-    clack.start(t);
-    clack.stop(t + 0.06);
-  }
-
-  /**
-   * Start rhythmic chug loop
-   */
-  startChug(tempoMs = 280) {
-    if (this.isChugging) return;
-    this.init();
-    this.isChugging = true;
-    this.chugTempo = tempoMs;
-    this.chugBeat = 0;
-
-    const scheduleNext = () => {
-      if (!this.isChugging) return;
-      const isAccent = this.chugBeat % 4 === 0;
-      this.triggerChugBeat(isAccent);
-      this.chugBeat++;
-      this.chugTimer = setTimeout(scheduleNext, this.chugTempo);
-    };
-
-    scheduleNext();
-  }
-
-  setChugTempo(tempoMs) {
-    this.chugTempo = Math.max(120, Math.min(500, tempoMs));
-  }
-
-  stopChug() {
-    this.isChugging = false;
-    if (this.chugTimer) {
-      clearTimeout(this.chugTimer);
-      this.chugTimer = null;
-    }
-  }
+  playMutedThud() {}
+  playReject() {}
+  playCollisionKnock() {}
+  playPlasticRattle() {}
+  playCrash() {}
+  playFanfare() {}
+  playWhistle() {}
+  playDoubleToot() {}
+  triggerChugBeat() {}
+  startChug() {}
+  setChugTempo() {}
+  stopChug() {}
+  playLegoFalled() {}
+  playHorn() {}
+  playTone() {}
 }
 
-export const sounds = new SoundEngine();
+const rawSounds = new SoundEngine();
+
+// Resilient Proxy: ensures any missing or legacy sound call safely no-ops rather than throwing a TypeError
+export const sounds = new Proxy(rawSounds, {
+  get(target, prop, receiver) {
+    if (prop in target) {
+      const val = Reflect.get(target, prop, receiver);
+      if (typeof val === 'function') {
+        return val.bind(target);
+      }
+      return val;
+    }
+    // Return a safe no-op function for any unknown audio methods
+    return (...args) => {};
+  }
+});
+

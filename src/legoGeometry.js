@@ -103,6 +103,46 @@ export const BRICK_TYPES = {
     height: 1.2,
     icon: '🚜',
     createMesh: (mat) => createWheelAxle(mat)
+  },
+  'plate-1x4': {
+    name: '1x4 Plate',
+    width: 1.0,
+    length: 4.0,
+    height: 0.4,
+    icon: '➖',
+    createMesh: (mat) => createPlate1x4(mat)
+  },
+  'arch-1x4': {
+    name: '1x4 Arch',
+    width: 1.0,
+    length: 4.0,
+    height: 1.2,
+    icon: '⌒',
+    createMesh: (mat) => createArch1x4(mat)
+  },
+  'canopy-cockpit': {
+    name: 'Windshield Canopy',
+    width: 2.0,
+    length: 3.0,
+    height: 1.4,
+    icon: '🪟',
+    createMesh: (mat) => createCanopyCockpit(mat)
+  },
+  'technic-1x4': {
+    name: 'Technic 1x4 Brick',
+    width: 1.0,
+    length: 4.0,
+    height: 1.2,
+    icon: '🔘',
+    createMesh: (mat) => createTechnic1x4(mat)
+  },
+  'wedge-curved': {
+    name: 'Curved Nose',
+    width: 2.0,
+    length: 2.0,
+    height: 1.2,
+    icon: '🚘',
+    createMesh: (mat) => createCurvedNose(mat)
   }
 };
 
@@ -282,16 +322,21 @@ function createWheelAxle(material) {
   axleMesh.castShadow = true;
   group.add(axleMesh);
 
-  // Two rubber wheels on sides (X = -1.35 and +1.35)
-  const wheelRadius = 0.42;
-  const wheelWidth = 0.28;
-  const tireGeom = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 20);
-  tireGeom.rotateZ(Math.PI / 2);
+  // Parent bogie relative coordinate frame
+  const frontBogie = new THREE.Group();
+  frontBogie.name = 'frontBogie';
+  group.add(frontBogie);
 
-  const rimGeom = new THREE.CylinderGeometry(wheelRadius * 0.65, wheelRadius * 0.65, wheelWidth + 0.02, 16);
-  rimGeom.rotateZ(Math.PI / 2);
+  frontBogie.add(base);
+  frontBogie.add(axleMesh);
 
-  [-1.35, 1.35].forEach(x => {
+  // Left and Right wheel groups parented directly to bogie
+  const leftWheel = new THREE.Group();
+  leftWheel.name = 'leftWheel';
+  const rightWheel = new THREE.Group();
+  rightWheel.name = 'rightWheel';
+
+  [-1.35, 1.35].forEach((x, idx) => {
     const tire = new THREE.Mesh(tireGeom, tireMaterial);
     tire.position.set(x, -0.2, 0);
     tire.castShadow = true;
@@ -301,10 +346,184 @@ function createWheelAxle(material) {
     rim.position.set(x, -0.2, 0);
     rim.castShadow = true;
 
-    group.add(tire);
-    group.add(rim);
+    const targetWheel = idx === 0 ? leftWheel : rightWheel;
+    targetWheel.add(tire);
+    targetWheel.add(rim);
   });
+
+  // Attach wheels to bogie relative coordinate frame
+  frontBogie.add(leftWheel);
+  frontBogie.add(rightWheel);
 
   group.userData = { width: 2.0, length: 2.0, height: 1.2, type: 'wheel-axle' };
   return group;
 }
+
+/**
+ * 1x4 Plate (thin 0.4 height, 4 studs)
+ */
+function createPlate1x4(material) {
+  const group = new THREE.Group();
+  const bodyGeom = new THREE.BoxGeometry(1.0, 0.4, 4.0);
+  const body = new THREE.Mesh(bodyGeom, material);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  const topY = 0.2 + STUD_HEIGHT / 2;
+  const zOffsets = [-1.5, -0.5, 0.5, 1.5];
+  zOffsets.forEach(z => {
+    const stud = new THREE.Mesh(studGeom, material);
+    stud.position.set(0, topY, z);
+    stud.castShadow = true;
+    stud.receiveShadow = true;
+    group.add(stud);
+  });
+
+  group.userData = { width: 1.0, length: 4.0, height: 0.4, type: 'plate-1x4' };
+  return group;
+}
+
+/**
+ * 1x4 Arch Brick
+ */
+function createArch1x4(material) {
+  const group = new THREE.Group();
+  const shape = new THREE.Shape();
+  shape.moveTo(-2.0, -0.6);
+  shape.lineTo(-2.0, 0.6);
+  shape.lineTo(2.0, 0.6);
+  shape.lineTo(2.0, -0.6);
+  shape.lineTo(1.4, -0.6);
+  shape.absarc(0, -0.6, 1.35, 0, Math.PI, false);
+  shape.lineTo(-1.4, -0.6);
+  shape.closePath();
+
+  const extrudeSettings = { steps: 1, depth: 1.0, bevelEnabled: false };
+  const archGeom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  archGeom.center();
+  archGeom.rotateY(Math.PI / 2);
+
+  const archMesh = new THREE.Mesh(archGeom, material);
+  archMesh.castShadow = true;
+  archMesh.receiveShadow = true;
+  group.add(archMesh);
+
+  // 4 Studs on top
+  const topY = 0.6 + STUD_HEIGHT / 2;
+  const zOffsets = [-1.5, -0.5, 0.5, 1.5];
+  zOffsets.forEach(z => {
+    const stud = new THREE.Mesh(studGeom, material);
+    stud.position.set(0, topY, z);
+    stud.castShadow = true;
+    stud.receiveShadow = true;
+    group.add(stud);
+  });
+
+  group.userData = { width: 1.0, length: 4.0, height: 1.2, type: 'arch-1x4' };
+  return group;
+}
+
+/**
+ * Translucent Blue Windshield / Canopy
+ */
+function createCanopyCockpit(baseMaterial) {
+  const group = new THREE.Group();
+  const canopyMat = new THREE.MeshStandardMaterial({
+    color: 0x38bdf8,
+    roughness: 0.1,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.72,
+    depthWrite: false
+  });
+
+  const shape = new THREE.Shape();
+  shape.moveTo(-1.5, -0.6);
+  shape.lineTo(1.5, -0.6);
+  shape.lineTo(1.5, 0.2);
+  shape.lineTo(0.5, 0.65);
+  shape.lineTo(-1.2, 0.65);
+  shape.closePath();
+
+  const extrudeSettings = { steps: 1, depth: 2.0, bevelEnabled: false };
+  const canopyGeom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  canopyGeom.center();
+  canopyGeom.rotateY(Math.PI / 2);
+
+  const canopyMesh = new THREE.Mesh(canopyGeom, canopyMat);
+  canopyMesh.castShadow = true;
+  group.add(canopyMesh);
+
+  group.userData = { width: 2.0, length: 3.0, height: 1.4, type: 'canopy-cockpit' };
+  return group;
+}
+
+/**
+ * Technic 1x4 Brick (with 3 side pin holes)
+ */
+function createTechnic1x4(material) {
+  const group = new THREE.Group();
+  const bodyGeom = new THREE.BoxGeometry(1.0, 1.2, 4.0);
+  const body = new THREE.Mesh(bodyGeom, material);
+  body.castShadow = true;
+  body.receiveShadow = true;
+  group.add(body);
+
+  // 4 Top studs
+  const topY = 0.6 + STUD_HEIGHT / 2;
+  [-1.5, -0.5, 0.5, 1.5].forEach(z => {
+    const stud = new THREE.Mesh(studGeom, material);
+    stud.position.set(0, topY, z);
+    stud.castShadow = true;
+    stud.receiveShadow = true;
+    group.add(stud);
+  });
+
+  // 3 Circular hole accents on side
+  const holeGeom = new THREE.CylinderGeometry(0.22, 0.22, 1.02, 16);
+  holeGeom.rotateZ(Math.PI / 2);
+  const holeMat = new THREE.MeshBasicMaterial({ color: 0x1e293b });
+  [-1.0, 0.0, 1.0].forEach(z => {
+    const hole = new THREE.Mesh(holeGeom, holeMat);
+    hole.position.set(0, 0, z);
+    group.add(hole);
+  });
+
+  group.userData = { width: 1.0, length: 4.0, height: 1.2, type: 'technic-1x4' };
+  return group;
+}
+
+/**
+ * Curved Nose / Wedge Engine Hood
+ */
+function createCurvedNose(material) {
+  const group = new THREE.Group();
+  const shape = new THREE.Shape();
+  shape.moveTo(-1.0, -0.6);
+  shape.lineTo(1.0, -0.6);
+  shape.lineTo(1.0, 0.6);
+  shape.quadraticCurveTo(-0.4, 0.6, -1.0, -0.1);
+  shape.closePath();
+
+  const extrudeSettings = { steps: 1, depth: 2.0, bevelEnabled: false };
+  const noseGeom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+  noseGeom.center();
+  noseGeom.rotateY(Math.PI / 2);
+
+  const noseMesh = new THREE.Mesh(noseGeom, material);
+  noseMesh.castShadow = true;
+  noseMesh.receiveShadow = true;
+  group.add(noseMesh);
+
+  // 1 Stud on top flat back
+  const stud = new THREE.Mesh(studGeom, material);
+  stud.position.set(0, 0.6 + STUD_HEIGHT / 2, 0.5);
+  stud.castShadow = true;
+  stud.receiveShadow = true;
+  group.add(stud);
+
+  group.userData = { width: 2.0, length: 2.0, height: 1.2, type: 'wedge-curved' };
+  return group;
+}
+

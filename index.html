@@ -3,23 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Brick Train Builder: Tactile Workshop</title>
-  <meta name="description" content="A tactile 3D brick building workshop: drag pieces from the visual tray, snap them onto the locomotive with magnetic snap mechanics, tactile clack sounds, and steam driving simulation!">
+  <title>Clackety: 3D Builder</title>
+  <meta name="application-name" content="Clackety 3D">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./src/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚂</text></svg>">
-  <!-- Cannon-es Rigid Body Physics CDN (Requirement 1) -->
-  <script src="https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.min.js"></script>
+
 </head>
 <body>
   <!-- Fullscreen 3D Viewport -->
   <div id="canvas-container"></div>
+
+  <!-- Hybrid Title Screen Overlay: 3D Depth Logo -->
+  <div id="title-screen-overlay" class="title-screen-overlay">
+    <div class="title-canvas-container">
+      <canvas id="title-canvas"></canvas>
+    </div>
+  </div>
 
   <!-- Floating Dynamic Alignment Indicator (Stud-pitch clutch and 90° rotation cue) -->
   <div id="drag-alignment-pill" class="drag-alignment-pill" style="display: none;">
     <span id="drag-alignment-icon">⬇️</span>
     <span id="drag-alignment-text">Aligned — Release to Snap!</span>
   </div>
-
 
   <!-- Loading Screen -->
   <div id="loading-overlay">
@@ -36,144 +43,141 @@
     <p class="loading-tip">Loading 170 precision interlocking elements & textures</p>
   </div>
 
-  <!-- Main UI Layer -->
-  <div class="ui-layer">
-    <!-- Top Navigation Header -->
-    <header class="app-header interactive">
-      <div class="logo-group">
-        <div class="logo-badge" title="Brick Train Workshop">🚂</div>
-        <div class="logo-text">
-          <h1 class="app-title">Brick Train Builder</h1>
-          <span class="badge-tag">Tactile Workshop</span>
+  <!-- Main UI Layer (Workshop Builder - Shown when Play is pressed) -->
+  <div class="ui-layer" id="workshop-ui-layer" style="display: none;">
+    <!-- MINIMALIST TOP HUD -->
+    <div class="top-toy-hud interactive">
+      <div class="top-hud-left">
+        <button id="btn-home" class="toy-circle-btn home-btn" title="Reset">🏠</button>
+        <button id="btn-stuck-step" class="toy-stuck-btn" title="Stuck? Tap to auto-build this step! 🪄" aria-label="Auto-build current piece">
+          <span class="stuck-icon">🪄</span>
+          <span class="stuck-label">Build Step</span>
+        </button>
+      </div>
+      <div class="toy-progress-pill">
+        <span class="toy-icon">🎒</span>
+        <span id="bag-label" class="bag-label">Bag 1</span>
+        <span id="brick-counter" class="brick-counter">0 / 8</span>
+        <div class="toy-track">
+          <div id="toy-progress-fill" class="toy-fill" style="width: 0%;"></div>
         </div>
       </div>
+    </div>
 
-      <!-- Mode Switcher -->
-      <nav class="mode-switcher" aria-label="Workshop Modes">
-        <button id="btn-train-mode" class="mode-btn active" title="Toy Building Mode">
-          <span class="mode-icon">🔨</span> Build Mode
-        </button>
-        <button id="btn-builder-mode" class="mode-btn" title="Free Brick Placement on Baseplate">
-          <span class="mode-icon">🧱</span> Free Builder
-        </button>
-        <button id="btn-drive-mode" class="mode-btn drive-mode-btn" title="Drive Train on Track">
-          <span class="mode-icon">🕹️</span> Drive Train
-        </button>
-      </nav>
-
-      <!-- Action Controls -->
-      <div class="header-actions">
-        <div class="brick-pill" id="brick-counter" title="Total granular bricks placed">
-          <span>🧱</span> Model Progress: <span id="brick-count">0</span> / 42
-        </div>
-        <button id="btn-ghost-toggle" class="chunky-btn" title="Toggle Ghost Guide Outline (Shortcut: G)">
-          <span id="ghost-toggle-icon">👻</span> <span id="ghost-toggle-label">Ghost: OFF</span>
-        </button>
-        <button id="btn-music-toggle" class="chunky-btn music-active" title="Toggle Background Music (90% Tempo, Shortcut: M)">
-          <span id="music-toggle-icon">🎵</span> <span id="music-toggle-label">Music: ON</span>
-        </button>
-        <button id="btn-sound-toggle" class="chunky-btn" title="Toggle Sound Effects">
-          <span id="sound-icon">🔊</span> <span id="sound-label">Sound</span>
-        </button>
-        <button id="btn-crash-toggle" class="chunky-btn crash-btn" title="Realistic Rigid-Body Demolish / Crash">
-          <span id="crash-btn-icon">💥</span> <span id="crash-btn-label">Demolish</span>
-        </button>
-        <button id="btn-restart-build" class="chunky-btn" title="Reset Train Build">
-          <span>🔄</span> Reset
-        </button>
-      </div>
-    </header>
-
-    <!-- LEFT VERTICAL CATEGORY BAR (Workshop Drawer) -->
-    <nav id="category-sidebar" class="category-sidebar interactive" aria-label="Piece Categories">
-      <div class="cat-sidebar-header">
-        <span class="cat-drawer-icon">🗄️</span>
-        <span class="cat-sidebar-title">PARTS</span>
-      </div>
-      <div class="cat-buttons-group">
-        <button class="cat-filter-btn active" data-cat="all" title="All Available Parts">
-          <span class="cat-icon">📦</span>
-          <span class="cat-name">All</span>
-          <span class="cat-badge" id="count-all">42</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="bricks" title="Standard Interlocking Bricks">
-          <span class="cat-icon">■</span>
-          <span class="cat-name">Bricks</span>
-          <span class="cat-badge" id="count-bricks">12</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="plates" title="Chassis & Flat Plates">
-          <span class="cat-icon">▬</span>
-          <span class="cat-name">Plates</span>
-          <span class="cat-badge" id="count-plates">8</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="round" title="Round, Cylinders, Boiler & Headlamp">
-          <span class="cat-icon">●</span>
-          <span class="cat-name">Round</span>
-          <span class="cat-badge" id="count-round">9</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="slopes" title="Curved Slopes & Roofs">
-          <span class="cat-icon">▲</span>
-          <span class="cat-name">Slopes</span>
-          <span class="cat-badge" id="count-slopes">4</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="wheels" title="Wheels, Bogies & Couplers">
-          <span class="cat-icon">⚙️</span>
-          <span class="cat-name">Wheels</span>
-          <span class="cat-badge" id="count-wheels">4</span>
-        </button>
-        <button class="cat-filter-btn" data-cat="special" title="Windows, Windshields & Translucent Elements">
-          <span class="cat-icon">💎</span>
-          <span class="cat-name">Special</span>
-          <span class="cat-badge" id="count-special">5</span>
-        </button>
-      </div>
-    </nav>
-
-    <!-- INSTRUCTION BOOKLET CARD (Top Right Blueprint Card - Auto Ghost OFF) -->
-    <aside id="instruction-booklet-card" class="instruction-booklet-card interactive" aria-label="Instruction Manual">
-      <div class="booklet-header">
-        <div class="booklet-title-wrap">
-          <span class="booklet-badge">📖 BLUEPRINT</span>
-          <span class="booklet-step-num" id="booklet-step-num">Step 1 / 42</span>
-        </div>
-        <button id="btn-blueprint-hint" class="hint-pulse-btn" title="Pulse target studs for 4 seconds if stuck">
-          <span>💡</span> Hint
-        </button>
-      </div>
-      <div class="booklet-body">
-        <div class="blueprint-canvas-wrap">
-          <canvas id="blueprint-canvas" width="120" height="84"></canvas>
-          <div class="blueprint-grid-lines"></div>
-        </div>
-        <div class="booklet-info">
-          <h3 class="booklet-part-title" id="booklet-part-title">Front Wheel Bogie Assembly</h3>
-          <p class="booklet-part-desc" id="booklet-part-desc">Rummage in bottom tray for this piece. Rotate to align studs before snapping.</p>
-          <div class="booklet-action-row">
-            <span class="kbd-hint-pill">Rotate: <strong>[Q]</strong> / <strong>[E]</strong> or <strong>[Space]</strong></span>
+    <!-- CLACKETY 3D BUILDER WOODEN CARVED BOTTOM TRAY (Exact Match to Reference Design) -->
+    <div id="clackety-bottom-hud" class="clackety-bottom-hud interactive" aria-label="Clackety 3D Builder Workshop Controls">
+      <!-- TOP ROW: Logo Wooden Sign + 4 Carved Bag Tabs + Action Buttons -->
+      <div class="clackety-top-row">
+        <!-- Carved Dark Wood Logo Sign -->
+        <div class="clackety-logo-sign" title="Clackety 3D Builder">
+          <div class="logo-leaf leaf-left">🍃</div>
+          <div class="logo-leaf leaf-right">🌿</div>
+          <div class="logo-text-block">
+            <span class="logo-title-clackety">Clackety</span>
+            <span class="logo-title-builder">3D Builder</span>
           </div>
         </div>
-      </div>
-    </aside>
 
-    <!-- BOTTOM VISUAL PIECE RUMMAGE TRAY -->
-    <section id="parts-tray" data-alias="toy-parts-tray" class="toy-parts-tray parts-tray interactive" aria-label="Available Building Pieces Tray">
-      <div class="tray-label-bar">
-        <div class="tray-label-left">
-          <span class="toy-box-icon">📦</span> 
-          <strong id="tray-category-title">Parts Box (All)</strong>
-          <span class="tray-hint-sub">Scroll tray • Drag to position • Rotate: [Q] Left / [E] or [Space] Right</span>
+        <!-- 4 Clay/Wood Carved Bag Tabs -->
+        <div class="tray-tabs-header clackety-bag-tabs" id="tray-tabs-header" role="tablist">
+          <button class="tray-tab clackety-tab tab-bag-1 active" data-stage="1" id="tab-bag-1" role="tab" aria-selected="true" title="Bag 1">
+            <span class="tab-leaf tl-top">🍃</span>
+            <span class="tab-leaf tl-bot">🌱</span>
+            <span class="tab-brick-svg">
+              <svg width="24" height="24" viewBox="0 0 32 32">
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#ef4444"/>
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#b91c1c"/>
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#dc2626"/>
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fca5a5"/>
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fca5a5"/>
+              </svg>
+            </span>
+            <span class="tab-text">Bag 1</span>
+          </button>
+
+          <button class="tray-tab clackety-tab tab-bag-2" data-stage="2" id="tab-bag-2" role="tab" aria-selected="false" title="Bag 2">
+            <span class="tab-leaf tl-top">🍃</span>
+            <span class="tab-leaf tl-bot">🌱</span>
+            <span class="tab-brick-svg">
+              <svg width="24" height="24" viewBox="0 0 32 32">
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#38bdf8"/>
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#0284c7"/>
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#0ea5e9"/>
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#bae6fd"/>
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#bae6fd"/>
+              </svg>
+            </span>
+            <span class="tab-text">Bag 2</span>
+          </button>
+
+          <button class="tray-tab clackety-tab tab-bag-3" data-stage="3" id="tab-bag-3" role="tab" aria-selected="false" title="Bag 3">
+            <span class="tab-leaf tl-top">🍃</span>
+            <span class="tab-leaf tl-bot">🌱</span>
+            <span class="tab-brick-svg">
+              <svg width="24" height="24" viewBox="0 0 32 32">
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#facc15"/>
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#a16207"/>
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#ca8a04"/>
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fef08a"/>
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fef08a"/>
+              </svg>
+            </span>
+            <span class="tab-text">Bag 3</span>
+          </button>
+
+          <button class="tray-tab clackety-tab tab-bag-4" data-stage="4" id="tab-bag-4" role="tab" aria-selected="false" title="Bag 4">
+            <span class="tab-leaf tl-top">🍃</span>
+            <span class="tab-leaf tl-bot">🌱</span>
+            <span class="tab-brick-svg">
+              <svg width="24" height="24" viewBox="0 0 32 32">
+                <path d="M16 28 C7 20 2 15 2 8.5 C2 4 5.5 1 9.8 1 C12.5 1 14.8 2.3 16 4.4 C17.2 2.3 19.5 1 22.2 1 C26.5 1 30 4 30 8.5 C30 15 25 20 16 28 Z" fill="#f43f5e"/>
+                <path d="M16 25 C8 18 4 14 4 8.5 C4 5 6.5 2.5 9.8 2.5 C12.2 2.5 14.2 3.8 15.2 5.5 L16 7 L16.8 5.5 C17.8 3.8 19.8 2.5 22.2 2.5 C25.5 2.5 28 5 28 8.5 C28 14 24 18 16 25 Z" fill="#fb7185"/>
+                <ellipse cx="10" cy="6" rx="2.5" ry="1.5" fill="#ffe4e6"/>
+              </svg>
+            </span>
+            <span class="tab-text">Bag 4</span>
+          </button>
         </div>
-        <div class="tray-label-right">
-          <button id="btn-tray-scroll-left" class="tray-scroll-btn" title="Scroll Left (A)">◀</button>
-          <button id="btn-tray-scroll-right" class="tray-scroll-btn" title="Scroll Right (D)">▶</button>
-          <span class="tray-progress-pill" id="tray-progress-pill">0 / 42 Placed</span>
+
+        <!-- Right Side Wooden Action Buttons (Auto-Build Step, Search/Inspect & Catalog/Grid) -->
+        <div class="clackety-actions">
+          <button id="btn-tray-autobuild" class="clackety-action-btn auto-build-btn" title="Stuck? Tap to build current piece! 🪄" aria-label="Auto-build next piece">
+            <span class="action-btn-circle">🪄</span>
+          </button>
+          <button id="btn-tray-inspect" class="clackety-action-btn" title="Inspect / Toggle Ghost Guide">
+            <span class="action-btn-circle">🔍</span>
+          </button>
+          <button id="btn-tray-catalog" class="clackety-action-btn" title="Catalog / Free Builder">
+            <span class="action-btn-circle">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#4a260f">
+                <rect x="3" y="3" width="7.5" height="7.5" rx="2"/>
+                <rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/>
+                <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/>
+                <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/>
+              </svg>
+            </span>
+          </button>
         </div>
       </div>
 
-      <div class="toy-tray-container" id="toy-tray-container">
-        <div class="toy-tray-track" id="toy-tray-track"></div>
-      </div>
-    </section>
+      <!-- BOTTOM ROW: Carved Light Honey Wood Plank with Inset Arrows and Pieces Track -->
+      <section id="parts-tray" data-alias="toy-parts-tray" class="clackety-wood-plank interactive" aria-label="Available Building Pieces Tray">
+        <!-- Inset Left Wooden Arrow Button -->
+        <button id="btn-tray-prev" class="wood-arrow-btn arrow-left" title="Scroll left" aria-label="Scroll pieces left">
+          <span class="arrow-glyph">‹</span>
+        </button>
+
+        <!-- Horizontal Scrollable Pieces Container -->
+        <div class="toy-tray-container" id="toy-tray-container">
+          <div class="toy-tray-track" id="toy-tray-track"></div>
+        </div>
+
+        <!-- Inset Right Wooden Arrow Button -->
+        <button id="btn-tray-next" class="wood-arrow-btn arrow-right" title="Scroll right" aria-label="Scroll pieces right">
+          <span class="arrow-glyph">›</span>
+        </button>
+      </section>
+    </div>
 
     <!-- FREE BUILDER TRAY (Shown when in Free Builder mode) -->
     <div id="builder-tray-container" class="builder-tray-container interactive" style="display: none;">
@@ -258,6 +262,15 @@
       <span id="hint-icon">💡</span>
       <span id="hint-text">Drag any piece from the bottom tray onto the train to snap it in!</span>
     </div>
+
+
+    <!-- COMPACT 4-BUTTON CAMERA DOCK (Requirement 1) -->
+    <div id="camera-dock" class="camera-dock interactive">
+      <button id="cam-swing-left" class="cam-btn" title="Swing Left">↺</button>
+      <button id="cam-zoom-in" class="cam-btn" title="Zoom In">+</button>
+      <button id="cam-zoom-out" class="cam-btn" title="Zoom Out">−</button>
+      <button id="cam-swing-right" class="cam-btn" title="Swing Right">↻</button>
+    </div>
   </div>
 
   <!-- Build Complete Celebration Dialog -->
@@ -295,6 +308,8 @@
       </div>
     </div>
   </dialog>
+
+
 
   <!-- Application Logic -->
   <script type="module" src="./src/main.js"></script>
