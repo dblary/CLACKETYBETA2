@@ -110,10 +110,10 @@ export class SceneManager {
       this.playroomDiorama = null;
     }
 
-    // 2. ATMOSPHERIC WARM PLAYROOM ROOM AMBIENCE & BLEND FOG:
+    // 2. ATMOSPHERIC WARM PLAYROOM ROOM AMBIENCE:
     const bgPlayroom = 0xf5ede2;
     scene.background = new THREE.Color(bgPlayroom);
-    scene.fog = new THREE.Fog(bgPlayroom, 35, 95);
+    scene.fog = null;
 
     // 3. BUILD NATIVE THREE.JS / WEBGL PLAYROOM ENVIRONMENT:
     this.playroomEnv = new PlayroomEnvironment(scene, renderer, 'high');
@@ -135,20 +135,20 @@ export class SceneManager {
 
     // 5. CAMERA FRAMING:
     if (camera) {
-      camera.fov = 38;
-      camera.position.set(0, 5.0, 8.5);
-      camera.lookAt(0, 0.4, 0);
+      camera.fov = 42;
+      camera.position.set(10.0, 9.0, 18.0);
+      camera.lookAt(0, 2.4, 0);
       camera.updateProjectionMatrix();
     }
 
     if (controls) {
-      controls.target.set(0, 0.4, 0);
-      controls.minPolarAngle = Math.PI / 6;   // ~30°
-      controls.maxPolarAngle = Math.PI / 2.3; // ~78°
-      controls.minAzimuthAngle = -Math.PI / 1.8; // Limits orbit to front ~160°
-      controls.maxAzimuthAngle = Math.PI / 1.8;
-      controls.minDistance = 4.0;
-      controls.maxDistance = 25.0; // Full zoom out across room diorama
+      controls.target.set(0, 2.4, 0);
+      controls.minPolarAngle = Math.PI / 16;  // Overhead top view
+      controls.maxPolarAngle = Math.PI / 2.05; // Avoids clipping below floor
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minDistance = 3.5;
+      controls.maxDistance = 38.0;
       controls.enableDamping = true;
       controls.dampingFactor = 0.08;
       controls.update();
@@ -394,8 +394,8 @@ export class SceneManager {
 
     const now = performance.now();
     meshes.forEach((mesh) => {
-      const baseScale = mesh.userData.snapBaseScale 
-        ? mesh.userData.snapBaseScale.clone() 
+      const baseScale = mesh.userData.snapBaseScale
+        ? mesh.userData.snapBaseScale.clone()
         : mesh.scale.clone();
       mesh.userData.snapBaseScale = baseScale.clone();
 

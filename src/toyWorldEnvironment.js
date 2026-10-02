@@ -41,10 +41,9 @@ export class ToyWorldEnvironment {
   initAtmosphere() {
     // Soft, sunny sky blue with matching horizon haze
     const skyColor = new THREE.Color(0x93c5fd); // Soft sky blue
-    const horizonColor = new THREE.Color(0xcbe6fd); // Warm horizon haze
 
     this.scene.background = skyColor;
-    this.scene.fog = new THREE.Fog(0xcbe6fd, 26, 76);
+    this.scene.fog = null;
   }
 
   initMaterials() {

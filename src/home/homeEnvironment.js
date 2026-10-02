@@ -85,9 +85,9 @@ export class HomeEnvironment {
   }
 
   createRoomStructure() {
-    const roomW = 28;
-    const roomD = 24;
-    const roomH = 14;
+    const roomW = 56;
+    const roomD = 52;
+    const roomH = 20;
 
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomD), this.materials.woodFloor);
     floor.rotation.x = -Math.PI / 2;
@@ -105,7 +105,7 @@ export class HomeEnvironment {
 
     const backWall = new THREE.Mesh(new THREE.BoxGeometry(roomW, roomH, 0.4), this.materials.wallPlanks);
     backWall.name = 'backWall';
-    backWall.position.set(0, roomH / 2, -10);
+    backWall.position.set(0, roomH / 2, -22);
     backWall.receiveShadow = true;
     this.group.add(backWall);
 
@@ -116,17 +116,26 @@ export class HomeEnvironment {
     this.group.add(leftWall);
 
     this.group.traverse((child) => {
-      if (child.isMesh && (child.name.toLowerCase().includes('wall') || child.material?.name?.toLowerCase().includes('wall'))) {
-        child.material.side = THREE.FrontSide;
-        child.material.needsUpdate = true;
+      if (child.isMesh) {
+        // Option A: Enable back-face culling so exterior sides become transparent
+        if (child.material) {
+          child.material.side = THREE.FrontSide;
+          child.material.needsUpdate = true;
+        }
+
+        // Option B: Hide the near/blocking wall directly if named in GLTF or procedural
+        const name = child.name.toLowerCase();
+        if (name.includes('wall_front') || name.includes('door') || name.includes('wall_left') || name.includes('frontwall')) {
+          child.visible = false;
+        }
       }
     });
 
     const baseBack = new THREE.Mesh(new THREE.BoxGeometry(roomW, 0.45, 0.12), this.materials.woodDarkOak);
-    baseBack.position.set(0, 0.225, -9.8);
+    baseBack.position.set(0, 0.225, -21.8);
     this.group.add(baseBack);
 
-    [-7, -3, 1, 5].forEach((bz) => {
+    [-18, -9, 0, 9, 18].forEach((bz) => {
       const beam = new THREE.Mesh(new THREE.BoxGeometry(roomW, 0.4, 0.5), this.materials.woodDarkOak);
       beam.position.set(0, roomH - 0.2, bz);
       beam.castShadow = true;

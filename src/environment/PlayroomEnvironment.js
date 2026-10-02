@@ -3,7 +3,7 @@ import { createEnvironmentMaterials } from './environmentMaterials.js';
 import { EnvironmentLights } from './environmentLights.js';
 import {
   createRoomStructure,
-  createArchedWindowAndScenery,
+  createPanoramicOutdoorWorld,
   createBackWallDecorations,
   createChildrenWorkbench,
   createToyShelvesLeft,
@@ -15,18 +15,17 @@ import {
 /**
  * PlayroomEnvironment
  * 
- * Beautiful, polished, kid-friendly "toy workshop / playroom" 3D environment
+ * Beautiful, polished, kid-friendly open-air "toy workshop" 3D diorama
  * surrounding the central LDraw brick-building area.
  * 
- * Pure Three.js / WebGL procedural geometry and materials.
- * Leaves 55-65% of the central floor completely open for construction.
- * Tagged with `userData.isEnvironment = true` so raycasting ignores it.
+ * Features an expansive sunny 360-degree sky, rolling hills, 3D clouds,
+ * hot air balloons, timber pergola, and charming toy workshop props.
  */
 export class PlayroomEnvironment {
   constructor(scene, renderer, quality = 'high') {
     this.scene = scene;
     this.renderer = renderer;
-    this.quality = quality; // 'high' | 'medium' | 'low'
+    this.quality = quality;
 
     // Root container
     this.environmentGroup = new THREE.Group();
@@ -35,7 +34,7 @@ export class PlayroomEnvironment {
 
     // Component containers
     this.roomGroup = null;
-    this.windowGroup = null;
+    this.outdoorWorldGroup = null;
     this.decorationsGroup = null;
     this.workbenchGroup = null;
     this.shelvesLeftGroup = null;
@@ -51,8 +50,8 @@ export class PlayroomEnvironment {
     this.materials = createEnvironmentMaterials();
 
     // Recommended camera settings
-    this.recommendedCameraPos = new THREE.Vector3(0, 4.8, 8.2);
-    this.recommendedCameraTarget = new THREE.Vector3(0, 0.4, 0);
+    this.recommendedCameraPos = new THREE.Vector3(10.0, 9.0, 18.0);
+    this.recommendedCameraTarget = new THREE.Vector3(0, 2.4, 0);
 
     // Build the environment
     this.build();
@@ -62,25 +61,25 @@ export class PlayroomEnvironment {
     // 1. Lighting Setup
     this.createLighting();
 
-    // 2. Room Structure (Floor planks, walls, trims, beams)
+    // 2. Open Sky, Rolling Hills, Mountains, 3D Clouds & Hot Air Balloons (360° View)
+    this.createOutdoorWorld();
+
+    // 3. Open-Air Workshop Patio Deck & Railings
     this.createRoom();
 
-    // 3. Central Build Area Rug & Contact Surface
+    // 4. Central Build Area Soft Rug & Contact Surface
     this.createFloor();
 
-    // 4. Large Arched Window & Outside Scenery
-    this.createWindow();
-
-    // 5. Back Wall Decorations (Chalkboard "LET'S BUILD!", bunting flags)
+    // 5. Timber Pergola, Chalkboard "LET'S BUILD!", Blueprint & Bunting Garland
     this.createDecorations();
 
-    // 6. Workbench & Tools (Left-back)
+    // 6. Workbench & Tools (Back-left)
     this.createFurniture();
 
-    // 7. Shelves & Toy Storage (Left & Right walls)
+    // 7. Shelves & Toy Storage (Left & Right perimeter)
     this.createShelves();
 
-    // 8. Bed / Cozy Reading Corner (Far left)
+    // 8. Bed / Cozy Reading Corner
     this.createBedCorner();
 
     // Add root group to scene
@@ -92,14 +91,26 @@ export class PlayroomEnvironment {
     // Traverse all children to ensure userData.isEnvironment is consistently set
     this.environmentGroup.traverse((child) => {
       child.userData.isEnvironment = true;
+      if (child.isMesh) {
+        if (child.material) {
+          if (!child.material.side || child.material.side === THREE.FrontSide) {
+            // Keep default side
+          }
+        }
+      }
     });
 
-    // Provide a dedicated invisible or baseplate contact plane for raycasting
+    // Dedicated flat plane flush with the floor for raycasting
     this.setupBuildContactSurface();
   }
 
   createLighting() {
     this.lights = new EnvironmentLights(this.scene, this.quality);
+  }
+
+  createOutdoorWorld() {
+    this.outdoorWorldGroup = createPanoramicOutdoorWorld(this.materials);
+    this.environmentGroup.add(this.outdoorWorldGroup);
   }
 
   createRoom() {
@@ -113,8 +124,7 @@ export class PlayroomEnvironment {
   }
 
   setupBuildContactSurface() {
-    // Dedicated flat plane flush with the floor (y = 0) specifically for LDraw piece placement
-    const contactGeo = new THREE.PlaneGeometry(16.0, 16.0);
+    const contactGeo = new THREE.PlaneGeometry(18.0, 18.0);
     const contactMat = new THREE.MeshBasicMaterial({
       visible: false,
       depthWrite: false
@@ -124,14 +134,8 @@ export class PlayroomEnvironment {
     this.buildZoneContactMesh.position.set(0, 0, 0);
     this.buildZoneContactMesh.name = 'build_zone_contact_floor';
     this.buildZoneContactMesh.userData.isBaseplate = true;
-    // Note: Do NOT mark isEnvironment = true on this contact mesh so raycaster can hit it as a baseplate!
     this.buildZoneContactMesh.userData.isEnvironment = false;
     this.scene.add(this.buildZoneContactMesh);
-  }
-
-  createWindow() {
-    this.windowGroup = createArchedWindowAndScenery(this.materials);
-    this.environmentGroup.add(this.windowGroup);
   }
 
   createDecorations() {
@@ -150,10 +154,6 @@ export class PlayroomEnvironment {
 
     this.storageRightGroup = createToyStorageRight(this.materials);
     this.environmentGroup.add(this.storageRightGroup);
-  }
-
-  createToys() {
-    // Toys are already integrated into the shelves, storage cubbies, and workbench
   }
 
   createBedCorner() {
@@ -184,20 +184,12 @@ export class PlayroomEnvironment {
 
   applyQualitySettings() {
     if (this.quality === 'low') {
-      // Reduce shadow casting and simplify small decorative meshes
       if (this.renderer && this.renderer.shadowMap) {
         this.renderer.shadowMap.enabled = false;
       }
       if (this.decorationsGroup) this.decorationsGroup.visible = false;
       if (this.bedGroup) this.bedGroup.visible = false;
-    } else if (this.quality === 'medium') {
-      if (this.renderer && this.renderer.shadowMap) {
-        this.renderer.shadowMap.enabled = true;
-      }
-      if (this.decorationsGroup) this.decorationsGroup.visible = true;
-      if (this.bedGroup) this.bedGroup.visible = true;
     } else {
-      // High quality
       if (this.renderer && this.renderer.shadowMap) {
         this.renderer.shadowMap.enabled = true;
       }
@@ -207,21 +199,16 @@ export class PlayroomEnvironment {
   }
 
   dispose() {
-    // 1. Remove from scene
     if (this.environmentGroup.parent) {
       this.environmentGroup.parent.remove(this.environmentGroup);
     }
     if (this.buildZoneContactMesh && this.buildZoneContactMesh.parent) {
       this.buildZoneContactMesh.parent.remove(this.buildZoneContactMesh);
     }
-
-    // 2. Dispose lights
     if (this.lights) {
       this.lights.dispose();
       this.lights = null;
     }
-
-    // 3. Dispose materials & geometries
     this.environmentGroup.traverse((child) => {
       if (child.isMesh) {
         if (child.geometry) child.geometry.dispose();

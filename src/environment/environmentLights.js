@@ -2,8 +2,8 @@ import * as THREE from 'three';
 
 /**
  * Lighting setup for PlayroomEnvironment.
- * Directs sun rays through the arched window on the back-right,
- * with warm honey-oak bounce and gentle ambient fill.
+ * Directs warm cinematic sunlight through the arched window on the back-right,
+ * with pastel sky-blue hemisphere ambient fill and soft corner accents.
  */
 export class EnvironmentLights {
   constructor(scene, quality = 'high') {
@@ -14,38 +14,44 @@ export class EnvironmentLights {
     this.lightsGroup.userData.isEnvironment = true;
 
     this.sunLight = null;
-    this.ambientLight = null;
     this.hemiLight = null;
-    this.frontFill = null;
+    this.lampLight = null;
 
     this.build();
     this.scene.add(this.lightsGroup);
   }
 
   build() {
-    // 1. Main warm sunlight from upper right window
-    this.sunLight = new THREE.DirectionalLight(0xfff6e6, 2.0);
-    this.sunLight.position.set(10, 14, 4);
-    this.sunLight.target.position.set(0.2, 0.4, 0.8);
+    // 1. Main warm sunlight angled through arched window at (18, 8.5, -39.58)
+    this.sunLight = new THREE.DirectionalLight(0xfff6e5, 2.4);
+    this.sunLight.position.set(24, 18, -32);
+    this.sunLight.target.position.set(0, 0.5, 0);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.set(2048, 2048);
-    this.sunLight.shadow.bias = -0.0003;
-    this.sunLight.shadow.camera.near = 1;
-    this.sunLight.shadow.camera.far = 35;
-    this.sunLight.shadow.camera.left = -12;
-    this.sunLight.shadow.camera.right = 12;
-    this.sunLight.shadow.camera.top = 12;
-    this.sunLight.shadow.camera.bottom = -12;
+    this.sunLight.shadow.bias = -0.0001;
+    this.sunLight.shadow.camera.near = 1.0;
+    this.sunLight.shadow.camera.far = 70.0;
+    this.sunLight.shadow.camera.left = -22.0;
+    this.sunLight.shadow.camera.right = 22.0;
+    this.sunLight.shadow.camera.top = 22.0;
+    this.sunLight.shadow.camera.bottom = -22.0;
     this.sunLight.shadow.radius = 2.5; // Soft shadow edges
     this.sunLight.userData.isEnvironment = true;
 
     this.lightsGroup.add(this.sunLight);
     this.lightsGroup.add(this.sunLight.target);
 
-    // 2. Ambient room fill to soften unlit faces
-    this.hemiLight = new THREE.HemisphereLight(0xfff7ed, 0x854d0e, 1.1);
+    // 2. Soft Fill Light: Pastel sky-blue ambient/hemisphere light to keep shadows colorful and gentle
+    this.hemiLight = new THREE.HemisphereLight(0xe8f4f8, 0xe0c39e, 1.1);
     this.hemiLight.userData.isEnvironment = true;
     this.lightsGroup.add(this.hemiLight);
+
+    // 3. Cozy Wooden Floor Lamp Warm Glow in Back-Right Corner
+    this.lampLight = new THREE.PointLight(0xffedd5, 1.2, 22, 1.8);
+    this.lampLight.position.set(34.0, 5.2, -32.0);
+    this.lampLight.castShadow = false;
+    this.lampLight.userData.isEnvironment = true;
+    this.lightsGroup.add(this.lampLight);
   }
 
   configureShadows() {
@@ -60,13 +66,13 @@ export class EnvironmentLights {
     const mapSize = this.quality === 'high' ? 2048 : 1024;
     this.sunLight.shadow.mapSize.set(mapSize, mapSize);
     this.sunLight.shadow.camera.near = 1.0;
-    this.sunLight.shadow.camera.far = 40.0;
-    this.sunLight.shadow.camera.left = -12.0;
-    this.sunLight.shadow.camera.right = 12.0;
-    this.sunLight.shadow.camera.top = 12.0;
-    this.sunLight.shadow.camera.bottom = -12.0;
-    this.sunLight.shadow.bias = -0.0003;
-    this.sunLight.shadow.radius = this.quality === 'high' ? 3.0 : 1.5;
+    this.sunLight.shadow.camera.far = 70.0;
+    this.sunLight.shadow.camera.left = -22.0;
+    this.sunLight.shadow.camera.right = 22.0;
+    this.sunLight.shadow.camera.top = 22.0;
+    this.sunLight.shadow.camera.bottom = -22.0;
+    this.sunLight.shadow.bias = -0.0001;
+    this.sunLight.shadow.radius = this.quality === 'high' ? 2.5 : 1.5;
   }
 
   setQuality(quality) {

@@ -5,18 +5,26 @@ import confetti from 'canvas-confetti';
 import { sounds } from './audio.js';
 import { LEGO_COLORS, BRICK_TYPES, createPlasticMaterial } from './legoGeometry.js';
 import { loadTrainModel, createGhostStepPreview, createLegoEdgeLines } from './trainLoader.js';
-import { PiecePreviewViewer, thumbnailGenerator, generatePieceThumbnail } from './piecePreview.js';
+import { loadModelById, MODEL_BLUEPRINTS } from './models/modelRegistry.js';
+import { PiecePreviewViewer, thumbnailGenerator, generatePieceThumbnail, clearThumbnailCache } from './piecePreview.js';
 import { SteamParticleSystem } from './steamParticles.js';
 import { occupancyGrid } from './occupancyGrid.js';
 import { physicsWorld } from './physicsWorld.js';
 import { BrickWorldManager } from './brickWorldManager.js';
 import { SceneManager, isPointerOverTray, TitleScreen } from './sceneManager.js';
-import { ASSEMBLY_STAGES, TOTAL_STAGED_PARTS, SNAP_DISTANCE, setupCardDragListener, quantizeGridPosition, STUD_PITCH, PLATE_HEIGHT, BASEPLATE_STUDS, BASEPLATE_SIZE, LEOCAD_CATEGORIES, LEOCAD_CAMERA_CONFIG, TURNTABLE_INSPECT_CONFIG, updateBuildProgress, setupCameraDockControls, getNextRotation90, getActiveStepPieces, decrementCardBadge } from './app.js';
+import { ASSEMBLY_STAGES, SNAP_DISTANCE, setupCardDragListener, quantizeGridPosition, STUD_PITCH, PLATE_HEIGHT, BASEPLATE_STUDS, BASEPLATE_SIZE, LEOCAD_CATEGORIES, LEOCAD_CAMERA_CONFIG, TURNTABLE_INSPECT_CONFIG, updateBuildProgress, setupCameraDockControls, getNextRotation90, getActiveStepPieces, decrementCardBadge } from './app.js';
 import { HomeScreen } from './home/HomeScreen.js';
+import { modelPreviewManager } from './modelPreviewManager.js';
+import { BOAT_SKY_BACKGROUND, createBoatEnvironment } from './boatEnvironment.js';
+import { BUGGY_CAR_CAMERA_POSITION, BUGGY_CAR_CAMERA_TARGET, BUGGY_CAR_SKY_COLOR, createBuggyCarEnvironment } from './buggyCarEnvironment.js';
+import { SKY_AIRY_COLOR, PLANE_CAMERA_POSITION, PLANE_CAMERA_TARGET, createSkyEnvironment } from './skyEnvironment.js';
+import { HELIPAD_SKY_COLOR, HELICOPTER_CAMERA_POSITION, HELICOPTER_CAMERA_TARGET, createHelipadEnvironment } from './helipadEnvironment.js';
 
 // --- State Management ---
 const state = {
   currentScreen: 'home', // 'home' | 'builder'
+  currentModelId: 'train', // 'train' | 'boat' | 'housetree' | 'buggy_car' | other blueprints
+  autosaveRestoredModelId: null,
   mode: 'train', // 'train' (Toy Workshop) | 'builder' (Free Play) | 'drive' (Drive Train)
   buildFlow: 'freepick', // 'guided' | 'freepick'
   currentStage: 1, // 1 to 4: 4 Staged Bags (Wheels, Chassis, Cab, Roof)
@@ -36,6 +44,9 @@ const state = {
 
   // LeoCAD Freeform 3D Placement & Dragging
   isInspectViewActive: false,
+  isShowingPreview: false,
+  savedCameraPos: null,
+  savedCameraTarget: null,
   activeDraggedPiece: null,
   selectedPlacedBrick: null,
 
@@ -81,11 +92,11 @@ function createWarmValleyHorizonSky() {
   canvas.height = 512;
   const ctx = canvas.getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0.0, '#38bdf8'); // Saturated sunny sky blue
-  grad.addColorStop(0.42, '#bae6fd'); // Crisp daylight blue
-  grad.addColorStop(0.68, '#fef08a'); // Warm sunny horizon glow
-  grad.addColorStop(0.84, '#fed7aa'); // Soft apricot valley horizon
-  grad.addColorStop(1.0, '#e2e8f0'); // Neutral studio floor horizon
+  grad.addColorStop(0.0, '#087bd5'); // Deep clear blue overhead
+  grad.addColorStop(0.38, '#20a9f2'); // Bright daylight blue
+  grad.addColorStop(0.7, '#58c3ff'); // Soft blue near the horizon
+  grad.addColorStop(0.88, '#82d5ff'); // A clearly blue horizon glow
+  grad.addColorStop(1.0, '#b1e7ff'); // Cool, cloud-bright horizon
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 2, 512);
   const tex = new THREE.CanvasTexture(canvas);
@@ -94,16 +105,21 @@ function createWarmValleyHorizonSky() {
 
 const scene = new THREE.Scene();
 
-// 2. ATMOSPHERIC WARM PLAYROOM ROOM AMBIENCE & BLEND FOG:
-const bgPlayroom = 0xf5ede2;
-scene.background = new THREE.Color(bgPlayroom);
-scene.fog = new THREE.Fog(bgPlayroom, 35, 95);
+// 2. SUNNY OPEN SKY ATMOSPHERE:
+const skyBlue = 0x7dd3fc;
+scene.background = new THREE.Color(skyBlue);
+scene.fog = null;
+const gardenSkyBackground = createWarmValleyHorizonSky();
+gardenSkyBackground.mapping = THREE.EquirectangularReflectionMapping;
+gardenSkyBackground.colorSpace = THREE.SRGBColorSpace;
 
 // 6. ISOMETRIC CAMERA POSITION & ORBIT LIMITS:
-const INITIAL_CAMERA_POS = new THREE.Vector3(0, 5.0, 8.5);
-const INITIAL_CAMERA_TARGET = new THREE.Vector3(0, 0.4, 0);
+const INITIAL_CAMERA_POS = new THREE.Vector3(10.0, 9.0, 18.0);
+const INITIAL_CAMERA_TARGET = new THREE.Vector3(0, 2.4, 0);
+const BOAT_CAMERA_POS = new THREE.Vector3(7.0, 6.8, 12.0);
+const BOAT_CAMERA_TARGET = new THREE.Vector3(0, 3.0, 0);
 
-const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.copy(INITIAL_CAMERA_POS);
 camera.lookAt(INITIAL_CAMERA_TARGET);
 camera.updateProjectionMatrix();
@@ -114,7 +130,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.2;
 container.appendChild(renderer.domElement);
 
 // --- Orbit Controls ---
@@ -122,12 +138,12 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.target.copy(INITIAL_CAMERA_TARGET);
-controls.minPolarAngle = Math.PI / 6;   // ~30°
-controls.maxPolarAngle = Math.PI / 2.3; // ~78°
-controls.minAzimuthAngle = -Math.PI / 1.8; // Limits orbit to front ~160°
-controls.maxAzimuthAngle = Math.PI / 1.8;
-controls.minDistance = 4.0;
-controls.maxDistance = 25.0; // Full zoom out across room diorama
+controls.minDistance = 3.5;   // Close-up inspect distance
+controls.maxDistance = 38.0;  // Zoom out until interior room walls
+controls.minAzimuthAngle = -Infinity; // Full 360 degree rotation around model
+controls.maxAzimuthAngle = Infinity;
+controls.minPolarAngle = Math.PI / 16;  // Overhead top view
+controls.maxPolarAngle = Math.PI / 2.05; // Avoids clipping below floor
 controls.update();
 controls.autoRotate = false;
 controls.autoRotateSpeed = 2.0;
@@ -182,19 +198,136 @@ export function animateCameraTo(endPos, endTarget, duration = 600, onComplete) {
   cameraTweenAnimId = requestAnimationFrame(step);
 }
 
+function getModelCameraView() {
+  if (state.currentModelId === 'boat') return { position: BOAT_CAMERA_POS, target: BOAT_CAMERA_TARGET };
+  if (state.currentModelId === 'buggy_car') return { position: BUGGY_CAR_CAMERA_POSITION, target: BUGGY_CAR_CAMERA_TARGET };
+  if (state.currentModelId === 'plane') return { position: PLANE_CAMERA_POSITION, target: PLANE_CAMERA_TARGET };
+  if (state.currentModelId === 'aeroplane') return { position: new THREE.Vector3(12.5, 9.5, 16.5), target: new THREE.Vector3(0, 1.2, 0) };
+  if (state.currentModelId === 'helicopter') return { position: HELICOPTER_CAMERA_POSITION, target: HELICOPTER_CAMERA_TARGET };
+  if (state.currentModelId === 'small_cafe') return { position: new THREE.Vector3(14.0, 11.0, 18.0), target: new THREE.Vector3(0, 2.0, 0) };
+  return { position: INITIAL_CAMERA_POS, target: INITIAL_CAMERA_TARGET };
+}
+
 export function smoothResetCamera(duration = 450, onComplete) {
-  animateCameraTo(INITIAL_CAMERA_POS, INITIAL_CAMERA_TARGET, duration, onComplete);
+  const view = getModelCameraView();
+  animateCameraTo(view.position, view.target, duration, onComplete);
 }
 
 export function setTrainAssemblyShowcaseMode(showComplete) {
-  isTrainShowcaseMode = showComplete;
-  if (!state.trainData || !state.trainData.steps) return;
-  state.trainData.steps.forEach((step, idx) => {
-    const isVisible = showComplete ? true : state.builtSteps.has(idx);
-    step.meshes.forEach((m) => {
-      m.visible = isVisible;
+  toggleShowMePreview(showComplete);
+}
+
+export function toggleShowMePreview(forceState) {
+  const nextState = typeof forceState === 'boolean' ? forceState : !state.isShowingPreview;
+  state.isShowingPreview = nextState;
+  window.isShowingPreview = nextState;
+
+  const showMeBtns = document.querySelectorAll('#btn-show-me, .btn-show-me, #btn-tray-inspect');
+  const icon = document.getElementById('show-me-icon');
+  const label = document.getElementById('show-me-label');
+
+  if (state.isShowingPreview) {
+    // 1. Save current camera position and target
+    state.savedCameraPos = camera.position.clone();
+    state.savedCameraTarget = controls ? controls.target.clone() : INITIAL_CAMERA_TARGET.clone();
+
+    // 2. Reveal all hidden model pieces for active build
+    if (state.trainData && state.trainData.steps) {
+      state.trainData.steps.forEach((step) => {
+        step?.meshes?.forEach((m) => {
+          m.visible = true;
+        });
+      });
+    }
+    if (state.trainAssemblyGroup) {
+      state.trainAssemblyGroup.traverse((child) => {
+        if (child.isMesh) child.visible = true;
+      });
+    }
+
+    // 3. Smoothly animate camera to full view showcase angle
+    const isBoat = state.currentModelId === 'boat';
+    const showcasePos = isBoat
+      ? new THREE.Vector3(8.5, 7.0, 13.0)
+      : new THREE.Vector3(12.0, 10.5, 20.0);
+    const showcaseTarget = isBoat
+      ? new THREE.Vector3(0, 1.2, 0)
+      : new THREE.Vector3(0, 2.2, 0);
+
+    if (controls) {
+      controls.enabled = true;
+    }
+
+    animateCameraTo(showcasePos, showcaseTarget, 650);
+
+    // 4. Update button text & UI
+    showMeBtns.forEach((btn) => {
+      btn.classList.add('preview-active');
+      btn.setAttribute('title', 'Click to close preview and resume building');
+      btn.setAttribute('aria-label', 'Close complete model preview');
+      const actionCircle = btn.querySelector('.action-btn-circle');
+      if (actionCircle) actionCircle.textContent = '❌';
     });
-  });
+
+    if (icon) icon.textContent = '❌';
+    if (label) label.textContent = 'Close View';
+
+    document.body.classList.add('show-me-preview-active');
+    try {
+      if (sounds && typeof sounds.playPop === 'function') sounds.playPop();
+    } catch (_) {}
+    showToast('📖 Full model preview active! Tap Close View to resume building.');
+  } else {
+    // 1. Smoothly animate camera back to player's saved position
+    const returnPos = state.savedCameraPos || INITIAL_CAMERA_POS;
+    const returnTarget = state.savedCameraTarget || INITIAL_CAMERA_TARGET;
+
+    animateCameraTo(returnPos, returnTarget, 550, () => {
+      if (controls) {
+        controls.target.copy(returnTarget);
+        controls.update();
+      }
+    });
+
+    // 2. Restore strict step-by-step piece visibility
+    if (state.trainData && state.trainData.steps) {
+      const builtMeshes = new Set();
+      state.trainData.steps.forEach((step, idx) => {
+        if (state.builtSteps.has(idx)) {
+          step?.meshes?.forEach((mesh) => builtMeshes.add(mesh));
+        }
+      });
+      if (state.trainAssemblyGroup) {
+        state.trainAssemblyGroup.traverse((child) => {
+          if (child.isMesh) child.visible = builtMeshes.has(child);
+        });
+      } else {
+        state.trainData.steps.forEach((step, idx) => {
+          step?.meshes?.forEach((mesh) => {
+            mesh.visible = state.builtSteps.has(idx);
+          });
+        });
+      }
+    }
+
+    // 3. Re-enable drag & update button text
+    showMeBtns.forEach((btn) => {
+      btn.classList.remove('preview-active');
+      btn.setAttribute('title', 'Show complete model showcase preview');
+      btn.setAttribute('aria-label', 'Show complete model preview');
+      const actionCircle = btn.querySelector('.action-btn-circle');
+      if (actionCircle) actionCircle.textContent = '📖';
+    });
+
+    if (icon) icon.textContent = '📖';
+    if (label) label.textContent = 'Show Me!';
+
+    document.body.classList.remove('show-me-preview-active');
+    try {
+      if (sounds && typeof sounds.playPop === 'function') sounds.playPop();
+    } catch (_) {}
+    showToast('🔒 Returned to step-by-step build mode!');
+  }
 }
 
 export function setCameraInspectMode(active, skipTween = false) {
@@ -213,12 +346,14 @@ export function setCameraInspectMode(active, skipTween = false) {
     // - controls.enabled = true
     controls.enabled = true;
     controls.enableZoom = true;
-    controls.minDistance = 4.0;
-    controls.maxDistance = 25.0;
+    controls.minDistance = 3.5;
+    controls.maxDistance = 38.0;
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
     controls.enablePan = false;
-    controls.minPolarAngle = Math.PI / 6;
-    controls.maxPolarAngle = Math.PI / 2.3;
-    controls.target.set(0, 0.4, 0);
+    controls.minPolarAngle = Math.PI / 16;
+    controls.maxPolarAngle = Math.PI / 2.05;
+    controls.target.copy(getModelCameraView().target);
     controls.update();
 
     showToast('🎥 Swing view active (drag horizontally to rotate angle, pinch/wheel to zoom)');
@@ -236,8 +371,10 @@ export function setCameraInspectMode(active, skipTween = false) {
 
     // - Smoothly tween or reset camera back to calibrated playroom perspective:
     if (skipTween) {
-      camera.position.set(0, 5.0, 8.5);
-      controls.target.set(0, 0.4, 0);
+      const view = getModelCameraView();
+      camera.position.copy(view.position);
+      controls.target.copy(view.target);
+      camera.lookAt(view.target);
       controls.update();
     } else {
       smoothResetCamera(450);
@@ -498,6 +635,16 @@ function createBaseplateAndTracks() {
 }
 createBaseplateAndTracks();
 
+function setTrainTrackVisible(visible) {
+  const track = baseplateGroup.getObjectByName('railroad-track');
+  if (track) track.visible = visible;
+}
+
+function setPlayroomLightsVisible(visible) {
+  const lightGroup = sceneManager.playroomEnv?.lights?.lightsGroup;
+  if (lightGroup) lightGroup.visible = visible;
+}
+
 // =========================================================
 // 3. SUBTLE TRACK CHASSIS "BUILD MAT" (Gentle Guidance)
 // =========================================================
@@ -591,7 +738,7 @@ function createTrainBuildMat() {
   // CRITICAL: Ensure none of the build mat elements intercept raycasting,
   // so pieces can be placed freely anywhere on the grass or track
   trainBuildMatGroup.traverse((child) => {
-    child.raycast = () => {};
+    child.raycast = () => { };
   });
 
   scene.add(trainBuildMatGroup);
@@ -697,6 +844,428 @@ function createExtendedScenicRailway() {
 }
 createExtendedScenicRailway();
 
+// --- Tropical Lagoon Environment for Boat Model ---
+const waterEnvironmentGroup = new THREE.Group();
+waterEnvironmentGroup.name = 'water-environment-group';
+waterEnvironmentGroup.visible = false;
+scene.add(waterEnvironmentGroup);
+
+const waterDiscGeom = new THREE.CylinderGeometry(8.5, 8.0, 0.4, 64);
+const waterDiscMat = new THREE.MeshStandardMaterial({ color: 0x0077b6, roughness: 0.1 });
+export const waterDisc = new THREE.Mesh(waterDiscGeom, waterDiscMat);
+waterDisc.position.set(0, -0.2, 0); // Top surface sits flush at Y = 0.0
+waterDisc.receiveShadow = true;
+waterDisc.name = 'water-disc-floor';
+waterEnvironmentGroup.add(waterDisc);
+
+const boatEnvironment = createBoatEnvironment(waterEnvironmentGroup, waterDisc);
+
+// --- Colorful Buggy Race Park Environment ---
+const buggyCarEnvironmentGroup = new THREE.Group();
+buggyCarEnvironmentGroup.visible = false;
+scene.add(buggyCarEnvironmentGroup);
+createBuggyCarEnvironment(buggyCarEnvironmentGroup);
+
+// --- Sky & Runway Environment for Airplane Model ---
+const skyEnvironmentGroup = new THREE.Group();
+skyEnvironmentGroup.name = 'sky-environment-group';
+skyEnvironmentGroup.visible = false;
+scene.add(skyEnvironmentGroup);
+const skyEnvironment = createSkyEnvironment(skyEnvironmentGroup);
+export const runwayMesh = skyEnvironment.runwayMesh;
+
+// --- Helipad Environment for Helicopter Model ---
+const helipadEnvironmentGroup = new THREE.Group();
+helipadEnvironmentGroup.name = 'helipad-environment-group';
+helipadEnvironmentGroup.visible = false;
+scene.add(helipadEnvironmentGroup);
+const helipadEnvironment = createHelipadEnvironment(helipadEnvironmentGroup);
+export const helipadMesh = helipadEnvironment.helipadMesh;
+
+// --- Storybook Backyard Environment for Cozy House & Tree ---
+const gardenEnvironmentGroup = new THREE.Group();
+gardenEnvironmentGroup.name = 'garden-environment-group';
+gardenEnvironmentGroup.visible = false;
+scene.add(gardenEnvironmentGroup);
+
+// A round, layered meadow gives the house a setting distinct from the boat's lagoon.
+// The upper cylinder is also the interaction surface used by the builder.
+const lawnRadius = 9.25;
+const lawnHeight = 0.35;
+const lawnGeom = new THREE.CylinderGeometry(lawnRadius - 0.22, lawnRadius, lawnHeight, 96);
+const lawnMat = new THREE.MeshStandardMaterial({
+  color: 0x8bd478,
+  roughness: 0.88
+});
+export const gardenLawn = new THREE.Mesh(lawnGeom, lawnMat);
+gardenLawn.position.set(0, -lawnHeight / 2, 0); // Top surface sits flush at Y = 0.0
+gardenLawn.receiveShadow = true;
+gardenLawn.name = 'garden-lawn-plate';
+gardenEnvironmentGroup.add(gardenLawn);
+
+// Warm soil shows below the grass lip, like a landscaped garden island.
+const borderGeom = new THREE.CylinderGeometry(lawnRadius + 0.05, lawnRadius + 0.4, 0.34, 96);
+const borderMat = new THREE.MeshStandardMaterial({
+  color: 0x9a5a3a,
+  roughness: 0.92
+});
+const gardenBorder = new THREE.Mesh(borderGeom, borderMat);
+gardenBorder.position.set(0, -0.31, 0);
+gardenBorder.receiveShadow = true;
+gardenEnvironmentGroup.add(gardenBorder);
+
+// A playful stepping-stone walk connects the front gate to the meadow edge.
+const gardenPath = new THREE.Group();
+gardenPath.name = 'garden-stepping-stones';
+const gardenInstanceTransform = new THREE.Object3D();
+const stoneMaterials = [0xe6d7b7, 0xf1dfb9, 0xd6e5d0, 0xf5d4a8].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.9 })
+);
+const stoneGeometry = new THREE.CylinderGeometry(0.34, 0.4, 0.12, 10);
+const steppingStones = new THREE.InstancedMesh(stoneGeometry, stoneMaterials[0], 6);
+for (let i = 0; i < 6; i++) {
+  gardenInstanceTransform.position.set(i % 2 === 0 ? -0.05 : 0.05, 0.055, 4.65 + i * 0.68);
+  gardenInstanceTransform.rotation.set(0, i % 2 === 0 ? 0.12 : -0.1, 0);
+  gardenInstanceTransform.updateMatrix();
+  steppingStones.setMatrixAt(i, gardenInstanceTransform.matrix);
+}
+steppingStones.instanceMatrix.needsUpdate = true;
+steppingStones.castShadow = true;
+steppingStones.receiveShadow = true;
+gardenPath.add(steppingStones);
+gardenEnvironmentGroup.add(gardenPath);
+
+// Rounded shrubs and friendly trees frame the build without covering the cottage.
+const shrubGeometry = new THREE.SphereGeometry(0.72, 14, 10);
+const shrubMaterials = [0x3f9b55, 0x55b968, 0x74cb70].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.9 })
+);
+const shrubPositions = [
+  [-7.55, -1.4], [-7.55, 2.0], [7.55, -1.4], [7.55, 2.0]
+];
+const shrubInstances = shrubMaterials.map((material) => new THREE.InstancedMesh(shrubGeometry, material, 4));
+const shrubInstanceCounts = [0, 0, 0];
+[
+  ...shrubPositions
+].forEach(([x, z], shrubIndex) => {
+  [0, 1, 2].forEach((leafIndex) => {
+    const materialIndex = (shrubIndex + leafIndex) % shrubMaterials.length;
+    gardenInstanceTransform.position.set(x + (leafIndex - 1) * 0.42, 0.52 + (leafIndex === 1 ? 0.2 : 0), z);
+    gardenInstanceTransform.scale.set([1, 0.8, 0.66][leafIndex], [0.82, 0.68, 0.58][leafIndex], [0.9, 0.72, 0.62][leafIndex]);
+    gardenInstanceTransform.rotation.set(0, 0, 0);
+    gardenInstanceTransform.updateMatrix();
+    shrubInstances[materialIndex].setMatrixAt(shrubInstanceCounts[materialIndex]++, gardenInstanceTransform.matrix);
+  });
+});
+shrubInstances.forEach((instances, i) => {
+  instances.count = shrubInstanceCounts[i];
+  instances.instanceMatrix.needsUpdate = true;
+  instances.castShadow = true;
+  gardenEnvironmentGroup.add(instances);
+});
+
+const treeTrunkGeometry = new THREE.CylinderGeometry(0.22, 0.34, 2.5, 10);
+const treeTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x95613d, roughness: 0.92 });
+const treeCanopyGeometry = new THREE.SphereGeometry(1, 16, 12);
+const treeCanopyMaterials = [0x39a95d, 0x58bf68, 0x79d477].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.9 })
+);
+const gardenTrees = [
+  { x: -8.05, z: -3.35, color: 0 },
+  { x: 8.05, z: -3.35, color: 1 }
+];
+const treeTrunks = new THREE.InstancedMesh(treeTrunkGeometry, treeTrunkMaterial, gardenTrees.length);
+const treeCanopyInstances = treeCanopyMaterials.map((material) => new THREE.InstancedMesh(treeCanopyGeometry, material, 8));
+const treeCanopyCounts = [0, 0, 0];
+const treePuffs = [
+  { x: 0, y: 3.0, z: 0, scale: 1.45 },
+  { x: -0.72, y: 3.65, z: 0.12, scale: 1.05 },
+  { x: 0.72, y: 3.75, z: -0.08, scale: 1.1 },
+  { x: 0.05, y: 4.35, z: 0.02, scale: 0.94 }
+];
+gardenTrees.forEach(({ x, z, color }, treeIndex) => {
+  gardenInstanceTransform.position.set(x, 1.25, z);
+  gardenInstanceTransform.scale.set(1, 1, 1);
+  gardenInstanceTransform.rotation.set(0, 0, 0);
+  gardenInstanceTransform.updateMatrix();
+  treeTrunks.setMatrixAt(treeIndex, gardenInstanceTransform.matrix);
+  treePuffs.forEach((puff, index) => {
+    gardenInstanceTransform.position.set(x + puff.x, puff.y, z + puff.z);
+    gardenInstanceTransform.scale.set(puff.scale, puff.scale * 0.88, puff.scale);
+    gardenInstanceTransform.updateMatrix();
+    const materialIndex = (color + index) % treeCanopyMaterials.length;
+    treeCanopyInstances[materialIndex].setMatrixAt(treeCanopyCounts[materialIndex]++, gardenInstanceTransform.matrix);
+  });
+});
+treeTrunks.instanceMatrix.needsUpdate = true;
+treeTrunks.castShadow = true;
+gardenEnvironmentGroup.add(treeTrunks);
+treeCanopyInstances.forEach((instances, i) => {
+  instances.count = treeCanopyCounts[i];
+  instances.instanceMatrix.needsUpdate = true;
+  instances.castShadow = true;
+  gardenEnvironmentGroup.add(instances);
+});
+
+// Bright flowers decorate the edge, leaving the front path and model base clear.
+const flowerStemGeometry = new THREE.CylinderGeometry(0.025, 0.035, 0.38, 6);
+const flowerStemMaterial = new THREE.MeshStandardMaterial({ color: 0x328c4b, roughness: 0.92 });
+const flowerPetalGeometry = new THREE.SphereGeometry(0.105, 8, 6);
+const flowerCenterGeometry = new THREE.SphereGeometry(0.075, 8, 6);
+const flowerPetalMaterials = [0xff6fae, 0xffc857, 0x9b83f6, 0xf7f4e8].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.72 })
+);
+const flowerCenterMaterial = new THREE.MeshStandardMaterial({ color: 0xffdf55, roughness: 0.7 });
+const flowerPlaces = [];
+for (let i = 0; i < 24; i++) {
+  const angle = (i / 24) * Math.PI * 2;
+  const x = Math.cos(angle) * 8.05;
+  const z = Math.sin(angle) * 8.05;
+  if (z > 0 && Math.abs(x) < 1.55) continue;
+  flowerPlaces.push({ x, z, color: i % flowerPetalMaterials.length });
+}
+const flowerStems = new THREE.InstancedMesh(flowerStemGeometry, flowerStemMaterial, flowerPlaces.length);
+const flowerPetals = flowerPetalMaterials.map((material) => new THREE.InstancedMesh(flowerPetalGeometry, material, flowerPlaces.length * 5));
+const flowerPetalCounts = [0, 0, 0, 0];
+const flowerCenters = new THREE.InstancedMesh(flowerCenterGeometry, flowerCenterMaterial, flowerPlaces.length);
+flowerPlaces.forEach(({ x, z, color }, flowerIndex) => {
+  gardenInstanceTransform.position.set(x, 0.19, z);
+  gardenInstanceTransform.scale.set(1, 1, 1);
+  gardenInstanceTransform.rotation.set(0, 0, 0);
+  gardenInstanceTransform.updateMatrix();
+  flowerStems.setMatrixAt(flowerIndex, gardenInstanceTransform.matrix);
+
+  for (let petal = 0; petal < 5; petal++) {
+    const petalAngle = (petal / 5) * Math.PI * 2;
+    gardenInstanceTransform.position.set(x + Math.cos(petalAngle) * 0.12, 0.41, z + Math.sin(petalAngle) * 0.12);
+    gardenInstanceTransform.scale.set(1, 0.72, 0.82);
+    gardenInstanceTransform.updateMatrix();
+    flowerPetals[color].setMatrixAt(flowerPetalCounts[color]++, gardenInstanceTransform.matrix);
+  }
+
+  gardenInstanceTransform.position.set(x, 0.43, z);
+  gardenInstanceTransform.scale.set(1, 1, 1);
+  gardenInstanceTransform.updateMatrix();
+  flowerCenters.setMatrixAt(flowerIndex, gardenInstanceTransform.matrix);
+});
+flowerStems.instanceMatrix.needsUpdate = true;
+flowerCenters.instanceMatrix.needsUpdate = true;
+gardenEnvironmentGroup.add(flowerStems, flowerCenters);
+flowerPetals.forEach((instances, i) => {
+  instances.count = flowerPetalCounts[i];
+  instances.instanceMatrix.needsUpdate = true;
+  gardenEnvironmentGroup.add(instances);
+});
+
+// A tiny pond, lily pads, and a friendly duck make the front garden feel lived in.
+const pondGroup = new THREE.Group();
+pondGroup.position.set(-4.8, 0, 6.0);
+const pondWater = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.08, 1.16, 0.08, 40),
+  new THREE.MeshStandardMaterial({ color: 0x35b9e8, roughness: 0.24, metalness: 0.08 })
+);
+pondWater.position.y = 0.035;
+pondWater.receiveShadow = true;
+pondGroup.add(pondWater);
+
+const pondRockGeometry = new THREE.SphereGeometry(0.18, 8, 6);
+const pondRockMaterial = new THREE.MeshStandardMaterial({ color: 0xd4c8a5, roughness: 0.96 });
+const pondRocks = new THREE.InstancedMesh(pondRockGeometry, pondRockMaterial, 12);
+for (let i = 0; i < 12; i++) {
+  const angle = (i / 12) * Math.PI * 2;
+  gardenInstanceTransform.position.set(Math.cos(angle) * 1.08, 0.09, Math.sin(angle) * 1.08);
+  gardenInstanceTransform.scale.set(1.15, 0.68, 0.9);
+  gardenInstanceTransform.rotation.set(0, angle, 0);
+  gardenInstanceTransform.updateMatrix();
+  pondRocks.setMatrixAt(i, gardenInstanceTransform.matrix);
+}
+pondRocks.instanceMatrix.needsUpdate = true;
+pondRocks.castShadow = true;
+pondGroup.add(pondRocks);
+
+const lilyPadGeometry = new THREE.CircleGeometry(0.23, 16, 0.35, Math.PI * 1.65);
+const lilyPadMaterial = new THREE.MeshStandardMaterial({ color: 0x398f4e, side: THREE.DoubleSide, roughness: 0.88 });
+const lilyPads = new THREE.InstancedMesh(lilyPadGeometry, lilyPadMaterial, 3);
+[
+  { x: -0.44, z: -0.25, rotation: 0.2 },
+  { x: 0.48, z: 0.12, rotation: 1.2 },
+  { x: 0.05, z: 0.55, rotation: 2.1 }
+].forEach((pad, index) => {
+  gardenInstanceTransform.position.set(pad.x, 0.09, pad.z);
+  gardenInstanceTransform.scale.set(1, 1, 1);
+  gardenInstanceTransform.rotation.set(-Math.PI / 2, 0, pad.rotation);
+  gardenInstanceTransform.updateMatrix();
+  lilyPads.setMatrixAt(index, gardenInstanceTransform.matrix);
+});
+lilyPads.instanceMatrix.needsUpdate = true;
+pondGroup.add(lilyPads);
+
+const duckBodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffd33d, roughness: 0.62 });
+const duckBeakMaterial = new THREE.MeshStandardMaterial({ color: 0xff8734, roughness: 0.58 });
+const duckEyeMaterial = new THREE.MeshBasicMaterial({ color: 0x183044 });
+const duck = new THREE.Group();
+const duckBody = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 10), duckBodyMaterial);
+duckBody.scale.set(1.15, 0.68, 0.82);
+duckBody.position.y = 0.27;
+duck.add(duckBody);
+const duckHead = new THREE.Mesh(new THREE.SphereGeometry(0.19, 12, 10), duckBodyMaterial);
+duckHead.position.set(0.22, 0.47, 0.12);
+duck.add(duckHead);
+const duckBeak = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.2, 6), duckBeakMaterial);
+duckBeak.rotation.x = Math.PI / 2;
+duckBeak.position.set(0.39, 0.45, 0.16);
+duck.add(duckBeak);
+const duckEye = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 6), duckEyeMaterial);
+duckEye.position.set(0.3, 0.52, 0.255);
+duck.add(duckEye);
+duck.position.set(-0.08, 0, -0.08);
+duck.castShadow = true;
+pondGroup.add(duck);
+gardenEnvironmentGroup.add(pondGroup);
+
+// Bright mushrooms add a little color at the garden's right-hand edge.
+const mushroomStemGeometry = new THREE.CylinderGeometry(0.13, 0.17, 0.38, 10);
+const mushroomStemMaterial = new THREE.MeshStandardMaterial({ color: 0xfff0cc, roughness: 0.9 });
+const mushroomCapGeometry = new THREE.SphereGeometry(0.38, 14, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+const mushroomCapMaterial = new THREE.MeshStandardMaterial({ color: 0xef6470, roughness: 0.72 });
+const mushroomSpotGeometry = new THREE.SphereGeometry(0.07, 8, 6);
+const mushroomSpotMaterial = new THREE.MeshStandardMaterial({ color: 0xfff9e8, roughness: 0.75 });
+const gardenMushrooms = [
+  { x: 6.15, z: 5.1, scale: 1 },
+  { x: 7.05, z: 4.45, scale: 0.72 }
+];
+const mushroomStems = new THREE.InstancedMesh(mushroomStemGeometry, mushroomStemMaterial, gardenMushrooms.length);
+const mushroomCaps = new THREE.InstancedMesh(mushroomCapGeometry, mushroomCapMaterial, gardenMushrooms.length);
+const mushroomSpots = new THREE.InstancedMesh(mushroomSpotGeometry, mushroomSpotMaterial, gardenMushrooms.length * 3);
+const mushroomSpotPositions = [
+  { x: -0.16, y: 0.53, z: 0.08 },
+  { x: 0.13, y: 0.57, z: 0.17 },
+  { x: 0.08, y: 0.54, z: -0.17 }
+];
+gardenMushrooms.forEach(({ x, z, scale }, index) => {
+  gardenInstanceTransform.position.set(x, 0.19 * scale, z);
+  gardenInstanceTransform.scale.setScalar(scale);
+  gardenInstanceTransform.rotation.set(0, 0, 0);
+  gardenInstanceTransform.updateMatrix();
+  mushroomStems.setMatrixAt(index, gardenInstanceTransform.matrix);
+  gardenInstanceTransform.position.set(x, 0.34 * scale, z);
+  gardenInstanceTransform.scale.set(scale, 0.72 * scale, scale);
+  gardenInstanceTransform.updateMatrix();
+  mushroomCaps.setMatrixAt(index, gardenInstanceTransform.matrix);
+  mushroomSpotPositions.forEach((spot, spotIndex) => {
+    gardenInstanceTransform.position.set(x + spot.x * scale, spot.y * scale, z + spot.z * scale);
+    gardenInstanceTransform.scale.setScalar(0.07 * scale);
+    gardenInstanceTransform.updateMatrix();
+    mushroomSpots.setMatrixAt(index * mushroomSpotPositions.length + spotIndex, gardenInstanceTransform.matrix);
+  });
+});
+[mushroomStems, mushroomCaps, mushroomSpots].forEach((instances) => {
+  instances.instanceMatrix.needsUpdate = true;
+  instances.castShadow = true;
+  gardenEnvironmentGroup.add(instances);
+});
+
+// Small colorful butterflies hover above the outer flower beds.
+const butterflyBodyGeometry = new THREE.CylinderGeometry(0.035, 0.035, 0.34, 6);
+const butterflyBodyMaterial = new THREE.MeshStandardMaterial({ color: 0x35455c, roughness: 0.8 });
+const butterflyWingGeometry = new THREE.SphereGeometry(0.16, 10, 8);
+const butterflyWingMaterials = [0xff7eb6, 0xffce58, 0x74c9ff, 0xb39bff].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 0.62, side: THREE.DoubleSide })
+);
+const gardenButterflies = [
+  { x: -6.4, y: 1.35, z: 3.9, color: 0 },
+  { x: 6.4, y: 1.8, z: 2.7, color: 1 },
+  { x: -7.0, y: 2.5, z: -1.0, color: 2 },
+  { x: 3.0, y: 1.6, z: 7.4, color: 3 }
+];
+const butterflyBodies = new THREE.InstancedMesh(butterflyBodyGeometry, butterflyBodyMaterial, gardenButterflies.length);
+const butterflyWings = butterflyWingMaterials.map((material) => new THREE.InstancedMesh(butterflyWingGeometry, material, 2));
+const butterflyWingCounts = [0, 0, 0, 0];
+gardenButterflies.forEach(({ x, y, z, color }, butterflyIndex) => {
+  gardenInstanceTransform.position.set(x, y, z);
+  gardenInstanceTransform.scale.set(1, 1, 1);
+  gardenInstanceTransform.rotation.set(Math.PI / 2, 0, 0);
+  gardenInstanceTransform.updateMatrix();
+  butterflyBodies.setMatrixAt(butterflyIndex, gardenInstanceTransform.matrix);
+  [-1, 1].forEach((side) => {
+    gardenInstanceTransform.position.set(x + side * 0.14, y + 0.02, z);
+    gardenInstanceTransform.scale.set(1.0, 0.7, 0.18);
+    gardenInstanceTransform.rotation.set(0, 0, side * -0.22);
+    gardenInstanceTransform.updateMatrix();
+    butterflyWings[color].setMatrixAt(butterflyWingCounts[color]++, gardenInstanceTransform.matrix);
+  });
+});
+butterflyBodies.instanceMatrix.needsUpdate = true;
+gardenEnvironmentGroup.add(butterflyBodies);
+butterflyWings.forEach((instances, i) => {
+  instances.count = butterflyWingCounts[i];
+  instances.instanceMatrix.needsUpdate = true;
+  gardenEnvironmentGroup.add(instances);
+});
+
+// Soft rolling hills add a storybook horizon behind the playable garden island.
+const hillGeometry = new THREE.SphereGeometry(1, 28, 18);
+const hillMaterials = [0x74bd68, 0x8bcf72, 0x65ad66].map((color) =>
+  new THREE.MeshStandardMaterial({ color, roughness: 1 })
+);
+[
+  { x: -15, y: -2.8, z: -13, sx: 8, sy: 4.3, sz: 5.4, material: 0 },
+  { x: 1, y: -3.5, z: -19, sx: 13, sy: 5.3, sz: 6.5, material: 1 },
+  { x: 16, y: -3.1, z: -12, sx: 8.5, sy: 4.7, sz: 5.8, material: 2 }
+].forEach((hill) => {
+  const mesh = new THREE.Mesh(hillGeometry, hillMaterials[hill.material]);
+  mesh.position.set(hill.x, hill.y, hill.z);
+  mesh.scale.set(hill.sx, hill.sy, hill.sz);
+  mesh.receiveShadow = true;
+  gardenEnvironmentGroup.add(mesh);
+});
+
+// Puffy clouds fill the high background without covering the house silhouette.
+const cloudMaterial = new THREE.MeshBasicMaterial({ color: 0xfffdf5 });
+const cloudGeometry = new THREE.SphereGeometry(1, 16, 12);
+const cloudPuffs = new THREE.InstancedMesh(cloudGeometry, cloudMaterial, 9);
+let cloudPuffIndex = 0;
+[
+  { x: -14, y: 10, z: -11, scale: 1.25 },
+  { x: 13, y: 11.5, z: -13, scale: 1.5 },
+  { x: 0, y: 12, z: -23, scale: 1.15 }
+].forEach((cloud) => {
+  [
+    { x: -1, y: 0, s: 0.8 },
+    { x: 0, y: 0.34, s: 1.0 },
+    { x: 0.95, y: 0.03, s: 0.72 }
+  ].forEach((puff) => {
+    gardenInstanceTransform.position.set(
+      cloud.x + puff.x * cloud.scale,
+      cloud.y + puff.y * cloud.scale,
+      cloud.z
+    );
+    gardenInstanceTransform.scale.set(
+      puff.s * cloud.scale,
+      puff.s * 0.66 * cloud.scale,
+      puff.s * 0.6 * cloud.scale
+    );
+    gardenInstanceTransform.rotation.set(0, 0, 0);
+    gardenInstanceTransform.updateMatrix();
+    cloudPuffs.setMatrixAt(cloudPuffIndex++, gardenInstanceTransform.matrix);
+  });
+});
+cloudPuffs.instanceMatrix.needsUpdate = true;
+gardenEnvironmentGroup.add(cloudPuffs);
+
+// Dedicated Warm Outdoor Lighting (Sun Directional Light + Soft Sky Hemisphere Light)
+const gardenSunLight = new THREE.DirectionalLight(0xfff7ed, 1.8);
+gardenSunLight.position.set(12, 22, 14);
+gardenSunLight.castShadow = true;
+gardenSunLight.shadow.mapSize.width = 2048;
+gardenSunLight.shadow.mapSize.height = 2048;
+gardenSunLight.shadow.bias = -0.0005;
+gardenEnvironmentGroup.add(gardenSunLight);
+
+const gardenHemiLight = new THREE.HemisphereLight(0x8ecae6, 0x52b788, 1.3);
+gardenHemiLight.position.set(0, 20, 0);
+gardenEnvironmentGroup.add(gardenHemiLight);
+
 // --- Interactive Home Screen System ---
 const homeScreen = new HomeScreen({
   scene,
@@ -704,8 +1273,8 @@ const homeScreen = new HomeScreen({
   renderer,
   controls,
   sounds,
-  onPlay: () => {
-    transitionToBuilder();
+  onPlay: (modelId = 'train') => {
+    transitionToBuilder(modelId);
   }
 });
 homeScreen.mount();
@@ -718,7 +1287,7 @@ export const titleScreen = sceneManager.setupTitleScreen({
   assetPath: './assets/clackety_logo.glb',
   sounds,
   onStartBuilding: () => {
-    transitionToBuilder();
+    transitionToBuilder('train');
   }
 });
 window.titleScreen = titleScreen;
@@ -730,43 +1299,294 @@ if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
 if (baseplateGroup) baseplateGroup.visible = false;
 if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
 if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
 
-export function transitionToBuilder() {
+export function transitionToBuilder(modelId = 'train') {
   state.currentScreen = 'builder';
   if (titleScreen) titleScreen.hide();
   homeScreen.hide();
 
-  // Show builder 3D groups
-  if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
-    sceneManager.playroomEnv.environmentGroup.visible = true;
+  const proceed = () => {
+    const isBoat = state.currentModelId === 'boat';
+    const isHouse = state.currentModelId === 'housetree';
+    const isBuggyCar = state.currentModelId === 'buggy_car';
+    const isPlane = state.currentModelId === 'plane';
+    const isAeroplane = state.currentModelId === 'aeroplane';
+    const isHelicopter = state.currentModelId === 'helicopter';
+    const isCafe = state.currentModelId === 'small_cafe';
+
+    // Show appropriate builder 3D groups
+    if (isHouse) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 42;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+        sceneManager.playroomEnv.environmentGroup.visible = false;
+      }
+      if (baseplateGroup) baseplateGroup.visible = false;
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      gardenEnvironmentGroup.visible = true;
+
+      scene.background = gardenSkyBackground;
+
+      controls.minDistance = 4.0;
+      controls.maxDistance = 26.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 16;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      if (!raycastSurfaces.includes(gardenLawn)) {
+        raycastSurfaces.push(gardenLawn);
+      }
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+    } else if (isBoat) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 50;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+        sceneManager.playroomEnv.environmentGroup.visible = false;
+      }
+      if (baseplateGroup) baseplateGroup.visible = false;
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      waterEnvironmentGroup.visible = true;
+      scene.background = BOAT_SKY_BACKGROUND;
+
+      controls.minDistance = 3.5;
+      controls.maxDistance = 24.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 16;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      if (!raycastSurfaces.includes(waterDisc)) {
+        raycastSurfaces.push(waterDisc);
+      }
+      const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+      if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+    } else if (isBuggyCar) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 44;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+      if (baseplateGroup) baseplateGroup.visible = true; // Keeps the invisible placement surface available.
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+      if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+      buggyCarEnvironmentGroup.visible = true;
+      setTrainTrackVisible(false);
+      scene.background = new THREE.Color(BUGGY_CAR_SKY_COLOR);
+
+      controls.minDistance = 5.0;
+      controls.maxDistance = 42.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 18;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+      if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+    } else if (isPlane || isAeroplane) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 44;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+      if (baseplateGroup) baseplateGroup.visible = false;
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+      if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
+      skyEnvironmentGroup.visible = true;
+      setTrainTrackVisible(false);
+      scene.background = new THREE.Color(SKY_AIRY_COLOR);
+
+      controls.minDistance = 4.0;
+      controls.maxDistance = isAeroplane ? 38.0 : 35.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 18;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      if (!raycastSurfaces.includes(runwayMesh)) {
+        raycastSurfaces.push(runwayMesh);
+      }
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+      if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+      const padIdx = raycastSurfaces.indexOf(helipadMesh);
+      if (padIdx !== -1) raycastSurfaces.splice(padIdx, 1);
+    } else if (isHelicopter) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 44;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+      if (baseplateGroup) baseplateGroup.visible = false;
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+      if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+      helipadEnvironmentGroup.visible = true;
+      setTrainTrackVisible(false);
+      scene.background = new THREE.Color(HELIPAD_SKY_COLOR);
+
+      controls.minDistance = 4.0;
+      controls.maxDistance = 35.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 18;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      if (!raycastSurfaces.includes(helipadMesh)) {
+        raycastSurfaces.push(helipadMesh);
+      }
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+      if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+      const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+      if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+    } else if (isCafe) {
+      setPlayroomLightsVisible(false);
+      camera.fov = 42;
+      camera.updateProjectionMatrix();
+      if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+      if (baseplateGroup) baseplateGroup.visible = false;
+      if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+      if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+      if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
+      gardenEnvironmentGroup.visible = true;
+      setTrainTrackVisible(false);
+      scene.background = gardenSkyBackground;
+
+      controls.minDistance = 4.0;
+      controls.maxDistance = 32.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.minPolarAngle = Math.PI / 16;
+      controls.maxPolarAngle = Math.PI / 2.05;
+      controls.enabled = true;
+
+      if (!raycastSurfaces.includes(gardenLawn)) {
+        raycastSurfaces.push(gardenLawn);
+      }
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+      if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+      const padIdx = raycastSurfaces.indexOf(helipadMesh);
+      if (padIdx !== -1) raycastSurfaces.splice(padIdx, 1);
+    } else {
+      setPlayroomLightsVisible(true);
+      camera.fov = 42;
+      camera.updateProjectionMatrix();
+      waterEnvironmentGroup.visible = false;
+      gardenEnvironmentGroup.visible = false;
+      if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+      if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+      if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
+      const padIdx = raycastSurfaces.indexOf(helipadMesh);
+      if (padIdx !== -1) raycastSurfaces.splice(padIdx, 1);
+      setTrainTrackVisible(state.currentModelId === 'train');
+      const discIdx = raycastSurfaces.indexOf(waterDisc);
+      if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+      if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+
+      if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+        sceneManager.playroomEnv.environmentGroup.visible = true;
+      }
+      if (baseplateGroup) baseplateGroup.visible = true;
+      if (state.currentModelId === 'train') {
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = true;
+        // Keep the full-length railway out of the assembly area; Drive mode enables it.
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      } else {
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+      }
+      scene.background = new THREE.Color(skyBlue);
+
+      controls.minDistance = 3.5;
+      controls.maxDistance = 38.0;
+      controls.minAzimuthAngle = -Infinity;
+      controls.maxAzimuthAngle = Infinity;
+      controls.enabled = true;
+    }
+
+    if (state.trainData && state.trainData.trainGroup) {
+      state.trainData.trainGroup.visible = true;
+    }
+
+    // Show workshop UI
+    const workshopUI = document.getElementById('workshop-ui-layer');
+    if (workshopUI) {
+      workshopUI.style.display = 'flex';
+    }
+
+    // Resume the saved bag when available; a fresh game starts at Bag 1.
+    switchBag(state.currentStage);
+    if (state.currentModelId === 'train' && state.mode === 'builder') {
+      switchMode('builder');
+    }
+    startGameAutosave();
+
+    // Transition the Three.js camera to the isometric playroom view (Requirement 6)
+    animateCameraTo(
+      isBoat ? BOAT_CAMERA_POS : isBuggyCar ? BUGGY_CAR_CAMERA_POSITION : isPlane ? PLANE_CAMERA_POSITION : INITIAL_CAMERA_POS,
+      isBoat ? BOAT_CAMERA_TARGET : isBuggyCar ? BUGGY_CAR_CAMERA_TARGET : isPlane ? PLANE_CAMERA_TARGET : INITIAL_CAMERA_TARGET,
+      750,
+      () => {
+      controls.enabled = true;
+      }
+    );
+
+    const bp = MODEL_BLUEPRINTS.find((m) => m.id === state.currentModelId) || MODEL_BLUEPRINTS[0];
+    const didRestore = state.autosaveRestoredModelId === state.currentModelId;
+    state.autosaveRestoredModelId = null;
+    showToast(didRestore ? `💾 Your saved ${bp.name} progress is back!` : `${bp.icon} Welcome to ${bp.name}! Let's build!`);
+  };
+
+  if (modelId && modelId !== state.currentModelId) {
+    loadModel(modelId).then(proceed);
+  } else {
+    proceed();
   }
-  if (baseplateGroup) baseplateGroup.visible = true;
-  if (trainBuildMatGroup) trainBuildMatGroup.visible = true;
-  if (scenicRailwayGroup) scenicRailwayGroup.visible = true;
-  if (state.trainData && state.trainData.trainGroup) {
-    state.trainData.trainGroup.visible = true;
-  }
-
-  // Show workshop UI
-  const workshopUI = document.getElementById('workshop-ui-layer');
-  if (workshopUI) {
-    workshopUI.style.display = 'flex';
-  }
-
-  // Mount Bag 1 tray (Requirement 6)
-  switchBag(1);
-
-  // Transition the Three.js camera to the isometric playroom view (Requirement 6)
-  animateCameraTo(INITIAL_CAMERA_POS, INITIAL_CAMERA_TARGET, 750, () => {
-    controls.enabled = true;
-  });
-
-  showToast("🚂 Welcome to the Workshop! Let's build!");
 }
 
 export function transitionToHome() {
+  stopGameAutosave();
   state.currentScreen = 'home';
   controls.enabled = false;
+  camera.fov = 42;
+  camera.updateProjectionMatrix();
+  scene.background = new THREE.Color(skyBlue);
+  setPlayroomLightsVisible(true);
 
   // Hide workshop UI
   const workshopUI = document.getElementById('workshop-ui-layer');
@@ -781,6 +1601,11 @@ export function transitionToHome() {
   if (baseplateGroup) baseplateGroup.visible = false;
   if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
   if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+  if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+  if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+  if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+  if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+  if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
   if (state.trainData && state.trainData.trainGroup) {
     state.trainData.trainGroup.visible = false;
   }
@@ -793,61 +1618,505 @@ export function transitionToHome() {
   animateCameraTo(homeScreen.homeCameraPos, homeScreen.homeCameraTarget, 650);
 }
 
-// --- Train Loading & Initial Setup ---
+// --- Universal Model Loading & Switching System ---
 const loadingOverlay = document.getElementById('loading-overlay');
 const loadingBar = document.getElementById('loading-bar');
 const loadingText = document.getElementById('loading-text');
+const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
+const AUTOSAVE_STORAGE_PREFIX = 'clackety-game-autosave-v1:';
+let autosaveTimerId = null;
 
-// Immediately render skeleton pulse loader in tray while GLB is loading
-renderToyPartsTray();
+function getAutosaveKey(modelId) {
+  return `${AUTOSAVE_STORAGE_PREFIX}${modelId}`;
+}
 
-loadTrainModel((percent) => {
-  if (loadingBar) loadingBar.style.width = `${percent}%`;
-  if (loadingText) loadingText.textContent = `Loading Brick Train (${percent}%)...`;
-})
-  .then((data) => {
-    state.trainData = data;
-    state.isTrainLoaded = true;
-    state.trainAssemblyGroup = data.trainAssemblyGroup || data.trainGroup;
-    window.trainAssemblyGroup = state.trainAssemblyGroup;
-    scene.add(data.trainGroup);
+function saveGameProgress({ notify = false } = {}) {
+  if (!state.trainData || !state.isTrainLoaded || state.currentScreen !== 'builder') return false;
 
-    if (state.currentScreen === 'home') {
-      data.trainGroup.visible = false;
+  const placedPieces = state.placedBricks.map((piece) => {
+    const data = piece.userData || {};
+    const position = piece.position.toArray();
+    if (data.isFreeBrick && data.pieceKey) {
+      return {
+        kind: 'free-brick',
+        key: data.pieceKey,
+        color: data.colorKey || 'red',
+        position,
+        rotationY: piece.rotation.y
+      };
     }
 
-    // Pre-generate crisp 128x128 3D thumbnails for all physical steps
-    if (data.steps) {
-      data.steps.forEach((step) => {
-        step.thumbnailUrl = generatePieceThumbnail(step);
-      });
+    const stepIndex = data.stepIndex;
+    if (Number.isInteger(stepIndex) && !state.builtSteps.has(stepIndex)) {
+      return { kind: 'model-piece', stepIndex, position, rotationY: piece.rotation.y };
     }
+    return null;
+  }).filter(Boolean);
 
-    // Initialize 3D Mini Turntable in UI
-    const previewCanvas = document.getElementById('mini-preview-canvas');
-    if (previewCanvas) {
-      piecePreviewViewer = new PiecePreviewViewer(previewCanvas);
-    }
+  const snapshot = {
+    version: 1,
+    savedAt: Date.now(),
+    modelId: state.currentModelId,
+    mode: state.mode === 'builder' && state.currentModelId === 'train' ? 'builder' : 'train',
+    currentStage: state.currentStage,
+    selectedStepIndex: state.selectedStepIndex,
+    selectedPiece: state.selectedPiece,
+    selectedColor: state.selectedColor,
+    ghostGuideEnabled: state.ghostGuideEnabled,
+    builtSteps: Array.from(state.builtSteps),
+    placedPieces
+  };
 
-    // Populate Left Visual Piece Tray with re-rendered 3D thumbnails
-    renderToyPartsTray();
-    setupTrayCategoryTabs();
+  try {
+    localStorage.setItem(getAutosaveKey(state.currentModelId), JSON.stringify(snapshot));
+    if (notify) showToast('💾 Progress saved on this device!');
+    return true;
+  } catch (error) {
+    console.warn('Could not save game progress:', error);
+    return false;
+  }
+}
 
-    // Select initial step (Step 1)
-    selectStep(0);
+function restoreGameProgress(data, modelId) {
+  let snapshot;
+  try {
+    snapshot = JSON.parse(localStorage.getItem(getAutosaveKey(modelId)) || 'null');
+  } catch (error) {
+    console.warn('Could not read saved game progress:', error);
+    return false;
+  }
+  if (!snapshot || snapshot.version !== 1 || snapshot.modelId !== modelId) return false;
 
-    // Fade out loading screen
-    setTimeout(() => {
-      if (loadingOverlay) {
-        loadingOverlay.style.opacity = '0';
-        setTimeout(() => (loadingOverlay.style.display = 'none'), 400);
-      }
-    }, 400);
-  })
-  .catch((err) => {
-    console.error('Failed to load train model:', err);
-    if (loadingText) loadingText.textContent = 'Error loading train.glb. Please refresh.';
+  state.builtSteps.clear();
+  (Array.isArray(snapshot.builtSteps) ? snapshot.builtSteps : []).forEach((idx) => {
+    if (Number.isInteger(idx) && idx >= 0 && idx < data.steps.length) state.builtSteps.add(idx);
   });
+
+  state.currentStage = Math.max(1, Math.min(ASSEMBLY_STAGES.length, Number(snapshot.currentStage) || 1));
+  const savedSelection = Number(snapshot.selectedStepIndex);
+  const stage = ASSEMBLY_STAGES[state.currentStage - 1];
+  state.selectedStepIndex = Number.isInteger(savedSelection) && savedSelection >= 0 && savedSelection < data.steps.length && !state.builtSteps.has(savedSelection)
+    ? savedSelection
+    : (stage?.stepIndices.find((idx) => !state.builtSteps.has(idx)) ?? data.steps.findIndex((_, idx) => !state.builtSteps.has(idx)));
+  if (state.selectedStepIndex < 0) state.selectedStepIndex = Math.max(0, data.steps.length - 1);
+  state.ghostGuideEnabled = typeof snapshot.ghostGuideEnabled === 'boolean'
+    ? snapshot.ghostGuideEnabled
+    : modelId === 'housetree';
+  state.mode = snapshot.mode === 'builder' && modelId === 'train' ? 'builder' : 'train';
+  if (BRICK_TYPES[snapshot.selectedPiece]) state.selectedPiece = snapshot.selectedPiece;
+  if (LEGO_COLORS[snapshot.selectedColor]) state.selectedColor = snapshot.selectedColor;
+  state.isTrainComplete = state.builtSteps.size >= data.steps.length;
+
+  // Rebuild the model visibility and occupied cells from the compact saved step list.
+  occupancyGrid.clear();
+  brickWorldManager?.occupancyGrid?.clear?.();
+  data.steps.forEach((step, idx) => {
+    const isBuilt = state.builtSteps.has(idx);
+    step.meshes.forEach((mesh) => { mesh.visible = isBuilt; });
+    if (!isBuilt) return;
+
+    const cells = occupancyGrid.getCellsForStep(step, step.mountPos);
+    occupancyGrid.register(`step_${idx}`, cells, { type: 'train_step', stepIndex: idx });
+    if (brickWorldManager) {
+      const target = brickWorldManager.worldToVoxel(step.mountPos);
+      const dims = step.dimensions || { studsX: 2, studsZ: 2, platesY: 1 };
+      const startX = -Math.floor((dims.studsX || 2) / 2);
+      const startZ = -Math.floor((dims.studsZ || 2) / 2);
+      for (let y = 0; y < (dims.platesY || 1); y++) {
+        for (let x = 0; x < (dims.studsX || 2); x++) {
+          for (let z = 0; z < (dims.studsZ || 2); z++) {
+            brickWorldManager.occupancyGrid.set(
+              `${target.gx + startX + x},${target.gy + y},${target.gz + startZ + z}`,
+              `step_${idx}`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  allOtherSceneBricks.forEach((piece) => scene.remove(piece));
+  allOtherSceneBricks.length = 0;
+  (Array.isArray(snapshot.placedPieces) ? snapshot.placedPieces : []).forEach((savedPiece, index) => {
+    if (!Array.isArray(savedPiece.position) || savedPiece.position.length !== 3) return;
+    let piece;
+    if (savedPiece.kind === 'free-brick') {
+      const brickDef = BRICK_TYPES[savedPiece.key];
+      if (!brickDef?.createMesh) return;
+      const colorKey = LEGO_COLORS[savedPiece.color] ? savedPiece.color : 'red';
+      const colorHex = LEGO_COLORS[colorKey].threeHex;
+      piece = brickDef.createMesh(createPlasticMaterial(colorHex));
+      piece.userData = {
+        isFreeBrick: true,
+        brickId: `autosave_free_brick_${index}`,
+        name: brickDef.name,
+        pieceKey: savedPiece.key,
+        colorKey
+      };
+      piece.position.fromArray(savedPiece.position);
+      piece.rotation.y = Number(savedPiece.rotationY) || 0;
+      const cells = occupancyGrid.getCellsForFreeBrick(brickDef, piece.position, piece.rotation.y);
+      occupancyGrid.register(piece.userData.brickId, cells, { type: 'free_brick', name: brickDef.name });
+    } else if (savedPiece.kind === 'model-piece') {
+      const stepIndex = Number(savedPiece.stepIndex);
+      if (!Number.isInteger(stepIndex) || !data.steps[stepIndex] || state.builtSteps.has(stepIndex)) return;
+      piece = createPieceMeshGroup(stepIndex);
+      if (!piece) return;
+      piece.position.fromArray(savedPiece.position);
+      piece.rotation.y = Number(savedPiece.rotationY) || 0;
+      piece.userData.isExistingPlacedPiece = true;
+      piece.userData.isLockedInScene = true;
+    }
+    if (!piece) return;
+    scene.add(piece);
+    allOtherSceneBricks.push(piece);
+  });
+
+  state.placedBricks = allOtherSceneBricks;
+  sceneManager?.setPlacedBricks?.(allOtherSceneBricks);
+  state.autosaveRestoredModelId = modelId;
+  return true;
+}
+
+function startGameAutosave() {
+  if (autosaveTimerId) clearInterval(autosaveTimerId);
+  saveGameProgress();
+  autosaveTimerId = setInterval(() => saveGameProgress({ notify: true }), AUTOSAVE_INTERVAL_MS);
+}
+
+function stopGameAutosave() {
+  saveGameProgress();
+  if (autosaveTimerId) clearInterval(autosaveTimerId);
+  autosaveTimerId = null;
+}
+
+window.addEventListener('pagehide', () => saveGameProgress());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) saveGameProgress();
+});
+
+export function loadModel(modelId = 'train') {
+  state.currentModelId = modelId;
+  state.autosaveRestoredModelId = null;
+  state.currentStage = 1;
+  state.selectedStepIndex = 0;
+  state.ghostGuideEnabled = modelId === 'housetree';
+  const blueprint = MODEL_BLUEPRINTS.find((m) => m.id === modelId) || MODEL_BLUEPRINTS[0];
+
+  // Clear thumbnail cache for clean model switching
+  clearThumbnailCache();
+
+  // Remove previous model if exists
+  if (state.trainData && state.trainData.trainGroup) {
+    scene.remove(state.trainData.trainGroup);
+  }
+  state.builtSteps.clear();
+  state.isTrainLoaded = false;
+  state.isTrainComplete = false;
+
+  if (loadingOverlay) {
+    loadingOverlay.style.display = 'flex';
+    loadingOverlay.style.opacity = '1';
+  }
+  if (loadingText) loadingText.textContent = `Loading ${blueprint.name}...`;
+  const loadingTip = document.getElementById('loading-tip');
+  if (loadingTip) {
+    loadingTip.textContent = `Loading ${blueprint.brickCount || 170} precision interlocking elements & textures`;
+  }
+
+  return loadModelById(modelId, (percent) => {
+    if (loadingBar) loadingBar.style.width = `${percent}%`;
+    if (loadingText) loadingText.textContent = `Loading ${blueprint.name} (${percent}%)...`;
+  })
+    .then((data) => {
+      state.trainData = data;
+      state.isTrainLoaded = true;
+      state.trainAssemblyGroup = data.trainAssemblyGroup || data.trainGroup;
+      window.trainAssemblyGroup = state.trainAssemblyGroup;
+      scene.add(data.trainGroup);
+
+      // Dynamic Assembly Stages update
+      if (data.stages && Array.isArray(data.stages)) {
+        ASSEMBLY_STAGES.length = 0;
+        data.stages.forEach((st) => ASSEMBLY_STAGES.push(st));
+      }
+
+      const didRestoreProgress = restoreGameProgress(data, modelId);
+
+      // Environment Switching for Models
+      if (modelId === 'housetree') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 42;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+          sceneManager.playroomEnv.environmentGroup.visible = false;
+        }
+        if (baseplateGroup) baseplateGroup.visible = false;
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        gardenEnvironmentGroup.visible = true;
+
+        scene.background = gardenSkyBackground;
+
+        controls.minDistance = 4.0;
+        controls.maxDistance = 26.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 16;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        if (!raycastSurfaces.includes(gardenLawn)) {
+          raycastSurfaces.push(gardenLawn);
+        }
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+      } else if (modelId === 'boat') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 50;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+          sceneManager.playroomEnv.environmentGroup.visible = false;
+        }
+        if (baseplateGroup) baseplateGroup.visible = false;
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        waterEnvironmentGroup.visible = true;
+
+        // Panoramic sunny lagoon sky
+        scene.background = BOAT_SKY_BACKGROUND;
+
+        // Give the tropical scenery room in the frame while keeping the build close.
+        controls.minDistance = 3.5;
+        controls.maxDistance = 24.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 16;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        // Register water disc in raycastSurfaces
+        if (!raycastSurfaces.includes(waterDisc)) {
+          raycastSurfaces.push(waterDisc);
+        }
+        const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+        if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+      } else if (modelId === 'buggy_car') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 44;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+        if (baseplateGroup) baseplateGroup.visible = state.currentScreen === 'builder';
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+        if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+        buggyCarEnvironmentGroup.visible = state.currentScreen === 'builder';
+        setTrainTrackVisible(false);
+        scene.background = new THREE.Color(BUGGY_CAR_SKY_COLOR);
+
+        controls.minDistance = 5.0;
+        controls.maxDistance = 42.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 18;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+        const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+        if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+        const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+        if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+      } else if (modelId === 'plane' || modelId === 'aeroplane') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 44;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+        if (baseplateGroup) baseplateGroup.visible = false;
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+        if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
+        skyEnvironmentGroup.visible = state.currentScreen === 'builder';
+        setTrainTrackVisible(false);
+        scene.background = new THREE.Color(SKY_AIRY_COLOR);
+
+        controls.minDistance = 4.0;
+        controls.maxDistance = modelId === 'aeroplane' ? 38.0 : 35.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 18;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        if (!raycastSurfaces.includes(runwayMesh)) {
+          raycastSurfaces.push(runwayMesh);
+        }
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+        const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+        if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+        const padIdx = raycastSurfaces.indexOf(helipadMesh);
+        if (padIdx !== -1) raycastSurfaces.splice(padIdx, 1);
+      } else if (modelId === 'helicopter') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 44;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+        if (baseplateGroup) baseplateGroup.visible = false;
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+        if (gardenEnvironmentGroup) gardenEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+        helipadEnvironmentGroup.visible = state.currentScreen === 'builder';
+        setTrainTrackVisible(false);
+        scene.background = new THREE.Color(HELIPAD_SKY_COLOR);
+
+        controls.minDistance = 4.0;
+        controls.maxDistance = 35.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 18;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        if (!raycastSurfaces.includes(helipadMesh)) {
+          raycastSurfaces.push(helipadMesh);
+        }
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+        const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+        if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+        const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+        if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+      } else if (modelId === 'small_cafe') {
+        setPlayroomLightsVisible(false);
+        camera.fov = 42;
+        camera.updateProjectionMatrix();
+        if (sceneManager.playroomEnv?.environmentGroup) sceneManager.playroomEnv.environmentGroup.visible = false;
+        if (baseplateGroup) baseplateGroup.visible = false;
+        if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+        if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+        if (waterEnvironmentGroup) waterEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+        if (helipadEnvironmentGroup) helipadEnvironmentGroup.visible = false;
+        gardenEnvironmentGroup.visible = state.currentScreen === 'builder';
+        setTrainTrackVisible(false);
+        scene.background = gardenSkyBackground;
+
+        controls.minDistance = 4.0;
+        controls.maxDistance = 32.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+        controls.minPolarAngle = Math.PI / 16;
+        controls.maxPolarAngle = Math.PI / 2.05;
+        controls.enabled = true;
+
+        if (!raycastSurfaces.includes(gardenLawn)) {
+          raycastSurfaces.push(gardenLawn);
+        }
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+        const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+        if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+        const padIdx = raycastSurfaces.indexOf(helipadMesh);
+        if (padIdx !== -1) raycastSurfaces.splice(padIdx, 1);
+      } else {
+        setPlayroomLightsVisible(true);
+        camera.fov = 42;
+        camera.updateProjectionMatrix();
+        waterEnvironmentGroup.visible = false;
+        gardenEnvironmentGroup.visible = false;
+        if (buggyCarEnvironmentGroup) buggyCarEnvironmentGroup.visible = false;
+        if (skyEnvironmentGroup) skyEnvironmentGroup.visible = false;
+        const runwayIdx = raycastSurfaces.indexOf(runwayMesh);
+        if (runwayIdx !== -1) raycastSurfaces.splice(runwayIdx, 1);
+        setTrainTrackVisible(modelId === 'train');
+        const discIdx = raycastSurfaces.indexOf(waterDisc);
+        if (discIdx !== -1) raycastSurfaces.splice(discIdx, 1);
+        const lawnIdx = raycastSurfaces.indexOf(gardenLawn);
+        if (lawnIdx !== -1) raycastSurfaces.splice(lawnIdx, 1);
+
+        if (state.currentScreen === 'builder') {
+          if (sceneManager.playroomEnv && sceneManager.playroomEnv.environmentGroup) {
+            sceneManager.playroomEnv.environmentGroup.visible = true;
+          }
+          if (baseplateGroup) baseplateGroup.visible = true;
+          if (modelId === 'train') {
+            if (trainBuildMatGroup) trainBuildMatGroup.visible = true;
+            // The scenic rail is reserved for Drive mode so it never crosses the build board.
+            if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+          } else {
+            if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
+            if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
+          }
+        }
+
+        scene.background = new THREE.Color(skyBlue);
+        controls.minDistance = 3.5;
+        controls.maxDistance = 38.0;
+        controls.minAzimuthAngle = -Infinity;
+        controls.maxAzimuthAngle = Infinity;
+      }
+
+      if (state.currentScreen === 'home') {
+        data.trainGroup.visible = false;
+      }
+
+      // Pre-generate crisp 128x128 3D thumbnails for all physical steps
+      if (data.steps) {
+        data.steps.forEach((step) => {
+          step.modelId = modelId;
+          step.thumbnailUrl = generatePieceThumbnail(step);
+        });
+      }
+
+      // Initialize 3D Mini Turntable in UI
+      const previewCanvas = document.getElementById('mini-preview-canvas');
+      if (previewCanvas && !piecePreviewViewer) {
+        piecePreviewViewer = new PiecePreviewViewer(previewCanvas);
+      }
+
+      // Populate Visual Piece Tray with active model pieces & update bag tabs
+      renderToyPartsTray();
+      setupTrayCategoryTabs();
+
+      // Select initial step (Step 1)
+      selectStep(didRestoreProgress ? state.selectedStepIndex : 0);
+      updateBuildProgress();
+
+      // Fade out loading screen
+      setTimeout(() => {
+        if (loadingOverlay) {
+          loadingOverlay.style.opacity = '0';
+          setTimeout(() => (loadingOverlay.style.display = 'none'), 400);
+        }
+      }, 400);
+
+      return data;
+    })
+    .catch((err) => {
+      console.error(`Failed to load model ${modelId}:`, err);
+      if (loadingText) loadingText.textContent = 'Error loading model. Please refresh.';
+    });
+}
+
+window.loadModel = loadModel;
+window.autoBuildCurrentStep = autoBuildCurrentStep;
+
+// Initial default model load
+loadModel('train');
 
 // =========================================================
 // 1. WORKSHOP BLUEPRINT MANUAL & RUMMAGE TRAY SYSTEM
@@ -997,7 +2266,7 @@ export function drawBlueprintDiagram(stepData) {
   // Dimension / Technical Annotation
   ctx.font = '700 8.5px monospace';
   ctx.fillStyle = '#94a3b8';
-  ctx.fillText(stepData.isSquareOrRound ? 'Ø SYM' : (stepData.targetRotationY === 0 ? 'ROT 0°' : 'ROT 90°'), 6, h - 5);
+  ctx.fillText(stepData.rotationBakedIn ? 'MATCH GUIDE' : (stepData.isSquareOrRound ? 'Ø SYM' : (stepData.targetRotationY === 0 ? 'ROT 0°' : 'ROT 90°')), 6, h - 5);
   ctx.fillText(`QTY x${stepData.quantity || 1}`, w - 38, h - 5);
 
   ctx.restore();
@@ -1008,6 +2277,11 @@ export function updateInstructionBooklet() {
   const currentStageObj = ASSEMBLY_STAGES[state.currentStage - 1] || ASSEMBLY_STAGES[0];
   const reqStepIdx = currentStageObj.stepIndices.find((idx) => !state.builtSteps.has(idx)) ?? state.selectedStepIndex;
   const stepData = state.trainData.steps[reqStepIdx] || state.trainData.steps[state.selectedStepIndex];
+  const isHouse = state.currentModelId === 'housetree';
+  const isBoat = state.currentModelId === 'boat';
+  const isBuggyCar = state.currentModelId === 'buggy_car';
+  const totalSteps = state.trainData.steps.length;
+  const miniBuild = isHouse ? getMiniBuildProgress(currentStageObj) : null;
 
   const stepNumEl = document.getElementById('booklet-step-num');
   const titleEl = document.getElementById('booklet-part-title');
@@ -1017,20 +2291,34 @@ export function updateInstructionBooklet() {
   const totalBuilt = state.builtSteps.size;
 
   if (stepNumEl) {
-    if (totalBuilt >= TOTAL_STAGED_PARTS) {
+    if (totalBuilt >= totalSteps) {
       stepNumEl.textContent = 'DONE!';
+    } else if (miniBuild) {
+      stepNumEl.textContent = `Mini-build ${miniBuild.number}/${miniBuild.count} · ${miniBuild.built}/${miniBuild.total}`;
     } else {
       stepNumEl.textContent = `Bag ${currentStageObj.id}: Part ${builtInStage + 1} / ${currentStageObj.totalParts}`;
     }
   }
 
   if (titleEl && stepData) {
-    titleEl.textContent = totalBuilt >= TOTAL_STAGED_PARTS ? 'Locomotive Complete!' : (stepData.title || stepData.shortTitle);
+    titleEl.textContent = totalBuilt >= totalSteps
+      ? (isHouse ? 'House complete!' : isBoat ? 'Boat complete!' : isBuggyCar ? 'Buggy car complete!' : 'Locomotive Complete!')
+      : (isHouse ? (stepData.shortTitle || `Piece ${reqStepIdx + 1}`) : (stepData.title || stepData.shortTitle));
   }
 
   if (descEl && stepData) {
-    if (totalBuilt >= TOTAL_STAGED_PARTS) {
-      descEl.textContent = 'All 4 bags assembled! Hop inside and switch to Drive Train mode!';
+    if (totalBuilt >= totalSteps) {
+      descEl.textContent = isHouse
+        ? 'You built the whole house! Take a look around your garden.'
+        : isBoat
+          ? 'You built the whole boat! Take a look around your harbor.'
+          : isBuggyCar
+            ? 'You built the whole buggy car! Take a look around your creation.'
+            : 'All 4 bags assembled! Hop inside and switch to Drive Train mode!';
+    } else if (isHouse) {
+      descEl.textContent = 'Tap the highlighted piece to place it, or drag it to the glowing outline.';
+    } else if (isBuggyCar) {
+      descEl.textContent = 'Follow the glowing guide to connect this buggy part to the chassis.';
     } else {
       descEl.textContent = `Use the Blueprint clues above to find where this piece connects to the studs.`;
     }
@@ -1039,12 +2327,33 @@ export function updateInstructionBooklet() {
   drawBlueprintDiagram(stepData);
 }
 
+const HOUSE_MINI_BUILD_SIZE = 10;
+
+function getMiniBuildProgress(stage) {
+  if (!stage?.stepIndices?.length) return { number: 1, count: 1, built: 0, total: 0 };
+  const total = stage.stepIndices.length;
+  const nextPosition = stage.stepIndices.findIndex((idx) => !state.builtSteps.has(idx));
+  const progressPosition = nextPosition === -1 ? total : nextPosition;
+  const count = Math.ceil(total / HOUSE_MINI_BUILD_SIZE);
+  const sectionIndex = Math.min(count - 1, Math.floor(progressPosition / HOUSE_MINI_BUILD_SIZE));
+  const sectionIndices = stage.stepIndices.slice(
+    sectionIndex * HOUSE_MINI_BUILD_SIZE,
+    (sectionIndex + 1) * HOUSE_MINI_BUILD_SIZE
+  );
+  return {
+    number: sectionIndex + 1,
+    count,
+    built: sectionIndices.filter((idx) => state.builtSteps.has(idx)).length,
+    total: sectionIndices.length
+  };
+}
+
 // 💡 2-Second Warm Gold Target Stud Pulse Hint (Requirement 1)
 export function triggerBlueprintHint() {
   if (!state.trainData) return;
   const currentStageObj = ASSEMBLY_STAGES[state.currentStage - 1] || ASSEMBLY_STAGES[0];
-  const targetStepIdx = state.isDragging && state.draggedStepIndex != null 
-    ? state.draggedStepIndex 
+  const targetStepIdx = state.isDragging && state.draggedStepIndex != null
+    ? state.draggedStepIndex
     : (currentStageObj.stepIndices.find((idx) => !state.builtSteps.has(idx)) ?? state.selectedStepIndex);
 
   const stepData = state.trainData.steps[targetStepIdx];
@@ -1132,26 +2441,61 @@ document.querySelectorAll('.cat-filter-btn, .stage-nav-btn').forEach((btn) => {
   });
 });
 
-// Wire Bottom Tray Horizontal Scroll Buttons
-document.getElementById('btn-tray-scroll-left')?.addEventListener('click', () => {
+const VERTICAL_PARTS_TRAY_QUERY = [
+  '(min-width: 700px) and (max-width: 1199px)',
+  '(hover: none) and (pointer: coarse) and (min-width: 700px)',
+  '(min-width: 560px) and (max-height: 600px) and (orientation: landscape)'
+].join(', ');
+
+function isVerticalPartsTrayLayout() {
+  return window.matchMedia?.(VERTICAL_PARTS_TRAY_QUERY).matches ?? false;
+}
+
+function scrollPartsTray(direction, distance = 240) {
   const container = document.getElementById('toy-tray-container');
-  if (container) container.scrollBy({ left: -260, behavior: 'smooth' });
+  if (!container) return;
+  const amount = direction * distance;
+  container.scrollBy(isVerticalPartsTrayLayout()
+    ? { top: amount, behavior: 'smooth' }
+    : { left: amount, behavior: 'smooth' });
+}
+
+function updatePartsTrayScrollLabels() {
+  const vertical = isVerticalPartsTrayLayout();
+  const previous = document.getElementById('btn-tray-prev');
+  const next = document.getElementById('btn-tray-next');
+  if (previous) {
+    previous.title = vertical ? 'Scroll pieces up' : 'Scroll pieces left';
+    previous.setAttribute('aria-label', vertical ? 'Scroll pieces up' : 'Scroll pieces left');
+  }
+  if (next) {
+    next.title = vertical ? 'Scroll pieces down' : 'Scroll pieces right';
+    next.setAttribute('aria-label', vertical ? 'Scroll pieces down' : 'Scroll pieces right');
+  }
+}
+
+// Tray navigation follows the responsive tray direction.
+document.getElementById('btn-tray-scroll-left')?.addEventListener('click', () => {
+  scrollPartsTray(-1, 260);
   sounds.playHoverTick();
 });
 
 document.getElementById('btn-tray-scroll-right')?.addEventListener('click', () => {
-  const container = document.getElementById('toy-tray-container');
-  if (container) container.scrollBy({ left: 260, behavior: 'smooth' });
+  scrollPartsTray(1, 260);
   sounds.playHoverTick();
 });
 
-// Horizontal scroll with mouse wheel over the tray
+// Mouse wheel scrolls along the tray's current axis.
 document.getElementById('toy-tray-container')?.addEventListener('wheel', (e) => {
-  if (e.deltaY !== 0) {
-    e.preventDefault();
-    e.currentTarget.scrollLeft += e.deltaY;
-  }
+  const delta = e.deltaY || e.deltaX;
+  if (!delta) return;
+  e.preventDefault();
+  if (isVerticalPartsTrayLayout()) e.currentTarget.scrollTop += delta;
+  else e.currentTarget.scrollLeft += delta;
 }, { passive: false });
+
+updatePartsTrayScrollLabels();
+window.addEventListener('resize', updatePartsTrayScrollLabels);
 
 export function updateStepHUD(stepIdx = state.selectedStepIndex) {
   updateInstructionBooklet();
@@ -1203,7 +2547,7 @@ function returnSingleLooseBrick(looseItem, sounds) {
   }
   try {
     physicsWorld.world.removeBody(looseItem.body);
-  } catch (_) {}
+  } catch (_) { }
 
   const meshGroup = looseItem.meshGroup;
   if (!meshGroup) return;
@@ -1229,7 +2573,7 @@ function returnSingleLooseBrick(looseItem, sounds) {
       clearInterval(animInterval);
       try {
         targetScene.remove(meshGroup);
-      } catch (_) {}
+      } catch (_) { }
       const card = document.getElementById(`toy-card-${looseItem.stepIdx}`);
       if (card) {
         card.classList.remove('is-being-dragged');
@@ -1276,17 +2620,23 @@ function handleUnsupportedDrop(stepIdx, reason) {
 // =========================================================
 export function updateBrickCount() {
   const count = state.builtSteps ? state.builtSteps.size : allOtherSceneBricks.length;
+  const totalSteps = state.trainData?.steps?.length || 42;
   const countEl = document.getElementById('brick-count');
   if (countEl) countEl.textContent = count;
   const pill = document.getElementById('tray-progress-pill');
-  if (pill) pill.textContent = `Placed: ${count}/42`;
+  if (pill) pill.textContent = `Placed: ${count}/${totalSteps}`;
 
   const currentStageObj = ASSEMBLY_STAGES[state.currentStage - 1] || ASSEMBLY_STAGES[0];
   const builtInStage = currentStageObj.stepIndices.filter((idx) => state.builtSteps && state.builtSteps.has(idx)).length;
   const totalInStage = currentStageObj.totalParts;
   const bagTitle = `Bag ${currentStageObj.id}: ${currentStageObj.name}`;
-
-  updateBuildProgress(builtInStage, totalInStage, bagTitle);
+  const isKidHouseBuild = state.currentModelId === 'housetree' && state.mode === 'train';
+  const miniBuild = isKidHouseBuild ? getMiniBuildProgress(currentStageObj) : null;
+  updateBuildProgress(miniBuild ? miniBuild.built : builtInStage, miniBuild ? miniBuild.total : totalInStage, bagTitle);
+  if (miniBuild) {
+    const bagLabel = document.getElementById('bag-label');
+    if (bagLabel) bagLabel.textContent = `Bag ${currentStageObj.id} · ${miniBuild.number}/${miniBuild.count}`;
+  }
 }
 
 export function updateInspectorCard(title = 'Freeform 3D Placement') {
@@ -1477,6 +2827,12 @@ export function createPieceMeshGroup(itemData) {
 
 // 2a) Tray Drag: Touching or clicking any card clones piece into 3D scene under cursor, disables OrbitControls, allows dragging anywhere on board
 export function initiateTrayBrickDrag(pieceData, clientX, clientY) {
+  // Requirement 2: When Full Model Preview is active, piece drag & snap is locked
+  if (state.isShowingPreview || window.isShowingPreview) {
+    showToast('📖 Full model preview is active. Tap Close View to build!');
+    return null;
+  }
+
   // Requirement 3: When Inspect View is active, dragging pieces from tray is disabled & auto-locks camera
   if (state.isInspectViewActive) {
     setCameraInspectMode(false);
@@ -1495,6 +2851,19 @@ export function initiateTrayBrickDrag(pieceData, clientX, clientY) {
     scene.remove(state.activeDraggedPiece);
     sceneManager?.cancelFloatingDrag?.(state.activeDraggedPiece);
     state.activeDraggedPiece = null;
+  }
+
+  const selectedStep = stepIdx !== undefined ? state.trainData?.steps?.[stepIdx] : null;
+  if (selectedStep?.rotationBakedIn) {
+    // Imported model pieces already carry their intended rotation in their mesh transforms.
+    // Do not let the previous piece's manual rotation offset this piece before the drag starts.
+    state.pieceRotation = 0;
+    state.dragRotationY = 0;
+    if (brickWorldManager) brickWorldManager.currentRotationY = 0;
+    const angleBadge = document.getElementById('rotation-angle-badge');
+    if (angleBadge) angleBadge.textContent = '0°';
+    const headerRotation = document.getElementById('header-rot-angle');
+    if (headerRotation) headerRotation.textContent = '0°';
   }
 
   const pieceGroup = createPieceMeshGroup(pieceData);
@@ -1620,6 +2989,34 @@ const KIDS_CATALOG_PIECES = [
 
 const standardBrickThumbCache = new Map();
 
+function trayItemHasLightPiece(item) {
+  const luminances = [];
+  const addMaterialColor = (material) => {
+    const color = material?.color;
+    if (!color?.isColor) return;
+    luminances.push(0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b);
+  };
+
+  if (item.type === 'standard_brick') {
+    const colorHex = item.colorHex || LEGO_COLORS[item.color]?.threeHex;
+    if (colorHex !== undefined) addMaterialColor({ color: new THREE.Color(colorHex) });
+  } else {
+    item.stepData?.meshes?.forEach((mesh) => {
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      materials.forEach(addMaterialColor);
+    });
+  }
+
+  // A light backdrop is needed when a noticeable part of a mixed assembly is white.
+  if (!luminances.length && item.stepData?.primaryColor) {
+    addMaterialColor({ color: new THREE.Color(item.stepData.primaryColor) });
+  }
+  if (!luminances.length) return false;
+
+  const lightMaterialCount = luminances.filter((value) => value >= 0.72).length;
+  return lightMaterialCount / luminances.length >= 0.28 || Math.max(...luminances) >= 0.92;
+}
+
 function getStandardBrickThumbnail(item) {
   const key = item.key || 'brick-2x4';
   const colorKey = item.color || 'red';
@@ -1653,12 +3050,22 @@ export function renderToyPartsTray() {
   track.innerHTML = '';
 
   const currentStageObj = ASSEMBLY_STAGES[state.currentStage - 1] || ASSEMBLY_STAGES[0];
+  const isKidHouseBuild = state.currentModelId === 'housetree' && state.mode === 'train';
+  const miniBuild = isKidHouseBuild ? getMiniBuildProgress(currentStageObj) : null;
 
-  // Synchronize Bag tab buttons active state
+  // Synchronize Bag tab buttons active state and text
   document.querySelectorAll('.tray-tabs-header .tray-tab').forEach((tab) => {
     const stageStr = tab.getAttribute('data-stage') || tab.dataset.stage || tab.getAttribute('data-bag');
     if (stageStr) {
       const stageId = parseInt(stageStr, 10);
+      const stageObj = ASSEMBLY_STAGES[stageId - 1];
+      if (stageObj) {
+        const textSpan = tab.querySelector('.tab-text');
+        if (textSpan) {
+          textSpan.textContent = stageObj.shortName ? `Bag ${stageId}: ${stageObj.shortName}` : `Bag ${stageId}`;
+        }
+        tab.setAttribute('title', `${stageObj.name} (${stageObj.totalParts} Parts)`);
+      }
       if (stageId === state.currentStage) {
         tab.classList.add('active');
         tab.setAttribute('aria-selected', 'true');
@@ -1675,7 +3082,11 @@ export function renderToyPartsTray() {
   if (currentStageObj) {
     const builtInStage = currentStageObj.stepIndices.filter((idx) => state.builtSteps && state.builtSteps.has(idx)).length;
     if (bagTitleEl) bagTitleEl.textContent = `Bag ${currentStageObj.id}: ${currentStageObj.name}`;
-    if (bagCounterEl) bagCounterEl.textContent = `${builtInStage} / ${currentStageObj.totalParts}`;
+    if (bagCounterEl) {
+      bagCounterEl.textContent = miniBuild
+        ? `Mini-build ${miniBuild.number}/${miniBuild.count} · ${miniBuild.built}/${miniBuild.total}`
+        : `${builtInStage} / ${currentStageObj.totalParts}`;
+    }
   }
 
   // Fallback Safety — show subtle pulse loader while model is loading
@@ -1711,7 +3122,8 @@ export function renderToyPartsTray() {
     const stageIndices = [...currentStageObj.stepIndices];
     const unbuilt = stageIndices.filter((idx) => !state.builtSteps || !state.builtSteps.has(idx));
     const built = stageIndices.filter((idx) => state.builtSteps && state.builtSteps.has(idx));
-    const orderedIndices = [...unbuilt, ...built];
+    // House Kid Mode keeps the tray focused on a handful of upcoming pieces.
+    const orderedIndices = isKidHouseBuild ? unbuilt.slice(0, 5) : [...unbuilt, ...built];
 
     orderedIndices.forEach((stepIdx) => {
       const step = state.trainData.steps[stepIdx];
@@ -1742,6 +3154,7 @@ export function renderToyPartsTray() {
   candidateItems.forEach((item) => {
     const card = document.createElement('div');
     card.className = 'toy-card tray-card';
+    if (trayItemHasLightPiece(item)) card.classList.add('light-piece-preview');
 
     let title = '';
     let thumbUrl = null;
@@ -1752,6 +3165,7 @@ export function renderToyPartsTray() {
       const step = item.stepData;
       title = step.shortTitle || step.title || `Part #${item.stepIndex + 1}`;
       card.id = `toy-card-${item.stepIndex}`;
+      card.dataset.stepIndex = String(item.stepIndex);
 
       if (isPlaced) {
         card.classList.add('placed');
@@ -1782,6 +3196,14 @@ export function renderToyPartsTray() {
     card.title = `${title}${isPlaced ? ' (Built)' : ''}`;
     card.setAttribute('aria-label', title);
 
+    if (isKidHouseBuild && !isPlaced) {
+      card.classList.add('kid-tap-to-place');
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.setAttribute('aria-label', `Tap to place ${title}`);
+      card.title = `Tap to place ${title}, or drag it to the glowing outline`;
+    }
+
     card.innerHTML = `
       ${placedBadgeHtml}
       <div class="toy-card-preview">
@@ -1809,6 +3231,21 @@ export function renderToyPartsTray() {
           onInspectExit: () => setCameraInspectMode(false)
         }
       );
+      if (isKidHouseBuild) {
+        const tapToPlace = () => {
+          if (state.builtSteps.has(item.stepIndex)) return;
+          selectStep(item.stepIndex);
+          autoBuildCurrentStep();
+        };
+        card.addEventListener('card-click', tapToPlace);
+        card.addEventListener('click', tapToPlace);
+        card.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            tapToPlace();
+          }
+        });
+      }
     } else {
       // Clicking a placed card inspects / highlights that step on the train
       card.addEventListener('click', () => {
@@ -1829,7 +3266,7 @@ export function switchBag(stageId) {
   if (isNaN(stageNum) || stageNum < 1 || stageNum > 4) return;
 
   state.currentStage = stageNum;
-  try { sounds.playPop(); } catch (_) {}
+  try { sounds.playPop(); } catch (_) { }
 
   const stageObj = ASSEMBLY_STAGES[stageNum - 1];
   if (stageObj && state.trainData && state.trainData.steps) {
@@ -1841,6 +3278,10 @@ export function switchBag(stageId) {
         piecePreviewViewer.loadStep(stepData);
       }
       updateStepHUD(nextPiece);
+      if (state.currentModelId === 'housetree' && state.ghostGuideEnabled && !state.builtSteps.has(nextPiece)) {
+        updateGhostPreview(nextPiece);
+        ghostContainer.visible = true;
+      }
     }
   }
 
@@ -1890,7 +3331,7 @@ export function setupTrayCategoryTabs() {
     });
   }
 
-  // Wire Clackety Wooden Tray Prev/Next navigation scroll buttons (Horizontal Scroll)
+  // Wire Clackety Wooden Tray Prev/Next navigation buttons.
   const prevBtn = document.getElementById('btn-tray-prev');
   const nextBtn = document.getElementById('btn-tray-next');
   const trayContainer = document.getElementById('toy-tray-container');
@@ -1899,7 +3340,7 @@ export function setupTrayCategoryTabs() {
     prevBtn.addEventListener('click', (e) => {
       e.preventDefault();
       sounds.playHoverTick();
-      trayContainer.scrollBy({ left: -240, behavior: 'smooth' });
+      scrollPartsTray(-1);
     });
   }
 
@@ -1907,7 +3348,7 @@ export function setupTrayCategoryTabs() {
     nextBtn.addEventListener('click', (e) => {
       e.preventDefault();
       sounds.playHoverTick();
-      trayContainer.scrollBy({ left: 240, behavior: 'smooth' });
+      scrollPartsTray(1);
     });
   }
 
@@ -1934,9 +3375,41 @@ export function setupTrayCategoryTabs() {
     catalogBtn.addEventListener('click', (e) => {
       e.preventDefault();
       sounds.playPop();
-      switchMode(state.mode === 'train' ? 'builder' : 'train');
+      const modelModal = document.getElementById('model-picker-modal');
+      if (modelModal) {
+        if (typeof modelModal.showModal === 'function') modelModal.showModal();
+        else modelModal.style.display = 'flex';
+      }
     });
   }
+
+  // Model Picker Modal Dialog Events
+  const closeModelPickerBtn = document.getElementById('btn-close-model-picker');
+  if (closeModelPickerBtn) {
+    closeModelPickerBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      sounds.playPop();
+      const modelModal = document.getElementById('model-picker-modal');
+      if (modelModal) {
+        if (typeof modelModal.close === 'function') modelModal.close();
+        else modelModal.style.display = 'none';
+      }
+    });
+  }
+
+  document.querySelectorAll('.btn-select-model').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      sounds.playPop();
+      const modelId = btn.getAttribute('data-model') || 'train';
+      const modelModal = document.getElementById('model-picker-modal');
+      if (modelModal) {
+        if (typeof modelModal.close === 'function') modelModal.close();
+        else modelModal.style.display = 'none';
+      }
+      transitionToBuilder(modelId);
+    });
+  });
 }
 setupTrayCategoryTabs();
 
@@ -1945,7 +3418,12 @@ function updateTrayProgress() {
   if (pill && state.trainData) {
     const currentStageObj = ASSEMBLY_STAGES[state.currentStage - 1] || ASSEMBLY_STAGES[0];
     const builtInStage = currentStageObj.stepIndices.filter((idx) => state.builtSteps && state.builtSteps.has(idx)).length;
-    pill.textContent = `Bag ${currentStageObj.id}/4 • ${builtInStage}/${currentStageObj.totalParts} Placed`;
+    if (state.currentModelId === 'housetree' && state.mode === 'train') {
+      const miniBuild = getMiniBuildProgress(currentStageObj);
+      pill.textContent = `Bag ${currentStageObj.id} · Mini-build ${miniBuild.number}/${miniBuild.count} · ${miniBuild.built}/${miniBuild.total}`;
+    } else {
+      pill.textContent = `Bag ${currentStageObj.id}/4 • ${builtInStage}/${currentStageObj.totalParts} Placed`;
+    }
   }
 }
 
@@ -1955,6 +3433,149 @@ function updateTrayProgress() {
 // =========================================================
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
+
+// Keep hover feedback and click selection on the same raycast path. Brick
+// outlines are LineSegments; their generous raycast threshold can otherwise
+// win over the actual brick surface and make stacked pieces hard to target.
+function resolvePlacedBrickRoot(object) {
+  for (let current = object; current && current !== scene; current = current.parent) {
+    const taggedRoot = current.userData?.rootBrick;
+    if (taggedRoot && allOtherSceneBricks.includes(taggedRoot)) return taggedRoot;
+    if (allOtherSceneBricks.includes(current)) return current;
+  }
+  return null;
+}
+
+function getPlacedBrickHitAtPointer(clientX, clientY) {
+  if (!allOtherSceneBricks.length) return null;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  if (!rect.width || !rect.height || clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+    return null;
+  }
+
+  mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+
+  const isVisibleInScene = (object) => {
+    for (let current = object; current && current !== scene; current = current.parent) {
+      if (!current.visible) return false;
+    }
+    return true;
+  };
+
+  for (const hit of raycaster.intersectObjects(allOtherSceneBricks, true)) {
+    // Ignore edge lines and helpers so they cannot steal the hit from a brick.
+    if (!hit.object.isMesh || !isVisibleInScene(hit.object)) continue;
+    const root = resolvePlacedBrickRoot(hit.object);
+    if (root) return { hit, root };
+  }
+  return null;
+}
+
+const hoverBrickOutline = new THREE.Box3Helper(new THREE.Box3(), 0xffc247);
+hoverBrickOutline.name = 'placed-brick-hover-outline';
+hoverBrickOutline.visible = false;
+hoverBrickOutline.renderOrder = 999;
+hoverBrickOutline.material.depthTest = false;
+hoverBrickOutline.material.transparent = true;
+hoverBrickOutline.material.opacity = 0.95;
+scene.add(hoverBrickOutline);
+let hoveredBrickRoot = null;
+
+function updatePlacedBrickHover(root) {
+  if (!root || state.isDragging) {
+    hoveredBrickRoot = null;
+    hoverBrickOutline.visible = false;
+    return false;
+  }
+
+  if (hoveredBrickRoot !== root) {
+    hoveredBrickRoot = root;
+    const bounds = new THREE.Box3().setFromObject(root).expandByScalar(0.035);
+    hoverBrickOutline.box.copy(bounds);
+    hoverBrickOutline.updateMatrixWorld(true);
+  }
+  hoverBrickOutline.visible = true;
+  return true;
+}
+
+function isPlacedBrickLocked(root, hitObject = root) {
+  const stepIdx = root?.userData?.stepIndex ?? hitObject?.userData?.stepIndex;
+  return Boolean(
+    root?.userData?.isCorrectlyPlaced ||
+    root?.userData?.isBlueprintAligned ||
+    root?.userData?.isPermanentlyLocked ||
+    hitObject?.userData?.isCorrectlyPlaced ||
+    hitObject?.userData?.isBlueprintAligned ||
+    hitObject?.userData?.isPermanentlyLocked ||
+    (stepIdx !== undefined && stepIdx !== null && state.builtSteps?.has(stepIdx))
+  );
+}
+
+function getPlacementRaycastTargets(excludedObject = null) {
+  const excluded = new Set();
+  [excludedObject, state.draggingPieceGroup].forEach((root) => {
+    if (root?.traverse) root.traverse((object) => excluded.add(object));
+    else if (root) excluded.add(root);
+  });
+
+  const isVisibleInScene = (object) => {
+    for (let current = object; current && current !== scene; current = current.parent) {
+      if (!current.visible) return false;
+    }
+    return true;
+  };
+  const surfaces = new Set();
+  const addSurface = (object) => {
+    if (object?.isMesh && !excluded.has(object) && isVisibleInScene(object)) surfaces.add(object);
+  };
+
+  // The active build surface is the train base, the boat water, or the house lawn.
+  raycastSurfaces.forEach(addSurface);
+
+  // Previously assembled model pieces are valid landing surfaces for the next brick.
+  state.trainData?.trainGroup?.traverse((object) => {
+    if (object.userData?.isTrainMesh) addSurface(object);
+  });
+  allOtherSceneBricks.forEach((root) => {
+    if (root?.traverse) root.traverse(addSurface);
+    else addSurface(root);
+  });
+
+  return [...surfaces];
+}
+
+// Use the top of the hit brick as the landing surface. A ray often strikes a
+// brick's side while the pointer is near the edge of its top, so hit.point.y
+// alone would make the dragged brick sink to the side-face height.
+function getPlacementSurfaceHeight(hit) {
+  if (!hit?.object) return BASEPLATE_TOP_Y;
+
+  if (raycastSurfaces.includes(hit.object)) {
+    return hit.point.y;
+  }
+
+  const pieceRoot = hit.object.userData?.rootBrick;
+  const surfaceObject = pieceRoot?.isObject3D ? pieceRoot : hit.object;
+  const bounds = new THREE.Box3().setFromObject(surfaceObject);
+  return Number.isFinite(bounds.max.y) ? Math.max(hit.point.y, bounds.max.y) : hit.point.y;
+}
+
+function projectPointerToPlacementSurface(hit) {
+  const surfaceY = getPlacementSurfaceHeight(hit);
+  const placementPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -surfaceY);
+  const point = new THREE.Vector3();
+
+  // Projecting the same cursor ray to the top plane prevents side-face hits
+  // from shifting the brick sideways as it is elevated onto a stack.
+  if (!raycaster.ray.intersectPlane(placementPlane, point)) {
+    point.copy(hit.point);
+  }
+
+  return { point, surfaceY };
+}
 
 // ── Grid & height constants ──────────────────────────────
 const STUD_SPACING = 0.8;   // LeoCAD standard stud pitch (0.8)
@@ -2407,6 +4028,10 @@ export function checkBlueprintAlignment(brickTarget, stepData) {
   const dist = brickTarget.position.distanceTo(stepData.mountPos);
   if (dist > 1.0) return false;
 
+  // Imported pieces preserve their original mesh rotations. The ghost shows the exact
+  // intended orientation, so positional alignment is enough and the wrapper can snap home.
+  if (stepData.rotationBakedIn) return true;
+
   // 2. Y-rotation matches within ±5°
   const tolerance = (5 * Math.PI) / 180; // ±5° in radians (~0.087 rad)
   const normRot = ((brickTarget.rotation.y % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
@@ -2468,8 +4093,8 @@ export function onPointerMove(arg1, arg2 = null, arg3 = null, arg4 = null) {
   mouse.y = -(clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
-  const targetSurfaces = [baseplateMesh, ...allOtherSceneBricks].filter(Boolean);
-    const hits = raycaster.intersectObjects(targetSurfaces, true).filter((h) => {
+  const targetSurfaces = getPlacementRaycastTargets(draggedBrick);
+  const hits = raycaster.intersectObjects(targetSurfaces, false).filter((h) => {
     let curr = h.object;
     while (curr && curr !== scene) {
       if (curr === draggedBrick) return false;
@@ -2480,25 +4105,27 @@ export function onPointerMove(arg1, arg2 = null, arg3 = null, arg4 = null) {
   });
 
   if (hits.length > 0) {
-    const p = hits[0].point;
-    p.x = THREE.MathUtils.clamp(p.x, -4.5, 4.5);
-    p.z = THREE.MathUtils.clamp(p.z, -3.5, 3.5);
+    const { point: p, surfaceY } = projectPointerToPlacementSurface(hits[0]);
+    const placementLimit = state.currentModelId === 'housetree' ? lawnRadius - 0.6 : null;
+    p.x = THREE.MathUtils.clamp(p.x, placementLimit ? -placementLimit : -4.5, placementLimit ?? 4.5);
+    p.z = THREE.MathUtils.clamp(p.z, placementLimit ? -placementLimit : -3.5, placementLimit ?? 3.5);
     // Quantize to stud grid
     draggedBrick.position.x = Math.round(p.x / 0.8) * 0.8;
     draggedBrick.position.z = Math.round(p.z / 0.8) * 0.8;
-    draggedBrick.position.y = hits[0].point.y + (draggedBrick.userData?.height || 0.32) / 2;
+    draggedBrick.position.y = surfaceY + (draggedBrick.userData?.height || 0.32) / 2;
     draggedBrick.userData.isHoveringValidSurface = true;
     draggedBrick.userData.lastValidPos = draggedBrick.position.clone();
     draggedBrick.visible = true; // Show once valid raycast point is established
-    updateDropShadow(draggedBrick.position, hits[0].point.y);
+    updateDropShadow(draggedBrick.position, surfaceY);
   } else {
     draggedBrick.userData.isHoveringValidSurface = false;
     // Fallback to ground plane Y = 0 while hovering off-board
     const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
     const pt = new THREE.Vector3();
     if (raycaster.ray.intersectPlane(groundPlane, pt)) {
-      pt.x = THREE.MathUtils.clamp(pt.x, -4.5, 4.5);
-      pt.z = THREE.MathUtils.clamp(pt.z, -3.5, 3.5);
+      const placementLimit = state.currentModelId === 'housetree' ? lawnRadius - 0.6 : null;
+      pt.x = THREE.MathUtils.clamp(pt.x, placementLimit ? -placementLimit : -4.5, placementLimit ?? 4.5);
+      pt.z = THREE.MathUtils.clamp(pt.z, placementLimit ? -placementLimit : -3.5, placementLimit ?? 3.5);
       draggedBrick.position.x = Math.round(pt.x / 0.8) * 0.8;
       draggedBrick.position.z = Math.round(pt.z / 0.8) * 0.8;
       draggedBrick.position.y = 0 + (draggedBrick.userData?.height || 0.32) / 2;
@@ -2514,42 +4141,16 @@ export const updateDraggedPiecePosition = onPointerMove;
 // ── Continuous Pointer Move Listener ──
 window.addEventListener('pointermove', (e) => {
   if (state.isDragging && state.activeDraggedPiece) {
+    updatePlacedBrickHover(null);
+    renderer.domElement.style.cursor = 'grabbing';
     onPointerMove(e);
-  } else if (!state.isDragging && allOtherSceneBricks.length > 0) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-      raycaster.setFromCamera(mouse, camera);
-      const hits = raycaster.intersectObjects(allOtherSceneBricks, true);
-      if (hits.length > 0) {
-        let hitObj = hits[0].object;
-        let root = hitObj.userData?.rootBrick;
-        if (!root) {
-          let curr = hitObj;
-          while (curr && curr !== scene) {
-            if (allOtherSceneBricks.includes(curr)) {
-              root = curr;
-              break;
-            }
-            curr = curr.parent;
-          }
-        }
-        const stepIdx = root?.userData?.stepIndex ?? hitObj?.userData?.stepIndex;
-        const isLocked =
-          root?.userData?.isCorrectlyPlaced ||
-          root?.userData?.isBlueprintAligned ||
-          root?.userData?.isPermanentlyLocked ||
-          hitObj?.userData?.isCorrectlyPlaced ||
-          hitObj?.userData?.isBlueprintAligned ||
-          hitObj?.userData?.isPermanentlyLocked ||
-          (stepIdx !== undefined && stepIdx !== null && state.builtSteps.has(stepIdx));
-
-        renderer.domElement.style.cursor = isLocked ? 'default' : (root ? 'grab' : 'default');
-      } else {
-        renderer.domElement.style.cursor = 'default';
-      }
-    }
+  } else {
+    const candidate = getPlacedBrickHitAtPointer(e.clientX, e.clientY);
+    const root = candidate?.root ?? null;
+    updatePlacedBrickHover(root);
+    renderer.domElement.style.cursor = root
+      ? (isPlacedBrickLocked(root, candidate.hit.object) ? 'not-allowed' : 'grab')
+      : 'default';
   }
 });
 
@@ -2620,8 +4221,8 @@ export function handlePieceRelease(clientXArg, clientYArg, e = null, explicitBri
   mouse.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(mouse, camera);
 
-  const targets = [baseplateMesh, ...allOtherSceneBricks].filter(Boolean);
-  const hits = raycaster.intersectObjects(targets, true).filter((h) => {
+  const targets = getPlacementRaycastTargets(brickTarget);
+  const hits = raycaster.intersectObjects(targets, false).filter((h) => {
     let curr = h.object;
     while (curr && curr !== scene) {
       if (curr === brickTarget) return false;
@@ -2716,10 +4317,10 @@ export function handlePieceRelease(clientXArg, clientYArg, e = null, explicitBri
   }
 
   // VALID PLACEMENT: released over baseplate or valid bricks
-  const p = hits[0].point;
+  const { point: p, surfaceY } = projectPointerToPlacementSurface(hits[0]);
   brickTarget.position.x = Math.round(p.x / 0.8) * 0.8;
   brickTarget.position.z = Math.round(p.z / 0.8) * 0.8;
-  brickTarget.position.y = hits[0].point.y + (brickTarget.userData?.height || 0.32) / 2;
+  brickTarget.position.y = surfaceY + (brickTarget.userData?.height || 0.32) / 2;
 
   brickTarget.userData.isExistingPlacedPiece = true;
   brickTarget.userData.isLockedInScene = true;
@@ -2759,7 +4360,9 @@ export function handlePieceRelease(clientXArg, clientYArg, e = null, explicitBri
     if (stepData.mountPos) {
       brickTarget.position.copy(stepData.mountPos);
     }
-    if (stepData.targetRotationY !== undefined) {
+    if (stepData.rotationBakedIn) {
+      brickTarget.rotation.set(0, 0, 0);
+    } else if (stepData.targetRotationY !== undefined) {
       brickTarget.rotation.y = stepData.targetRotationY;
     }
 
@@ -3061,7 +4664,7 @@ function lockPieceIntoPlace(stepIdx, looseMeshToRemove = null) {
           spread: 70,
           origin: { y: 0.65 }
         });
-      } catch (_) {}
+      } catch (_) { }
 
       const completedStageId = state.currentStage;
       state.currentStage++;
@@ -3287,6 +4890,11 @@ function selectStep(stepIdx) {
       card.classList.add('active');
     }
   });
+
+  if (state.currentModelId === 'housetree' && state.ghostGuideEnabled && !state.builtSteps.has(stepIdx)) {
+    updateGhostPreview(stepIdx);
+    ghostContainer.visible = true;
+  }
 }
 
 function getNextUnbuiltStep(currentIdx) {
@@ -3561,7 +5169,7 @@ function animatePieceToMount(looseMesh, targetPos, targetRotY = 0, onComplete) {
   // Audio: Pop on magnetic lift
   try {
     sounds.playPop(1.15, 0.4);
-  } catch (_) {}
+  } catch (_) { }
 
   function step(now) {
     if (isFinished) return;
@@ -3650,7 +5258,7 @@ export function autoBuildCurrentStep() {
     // Play a gentle cheerful tap sound
     try {
       sounds.playPop();
-    } catch (_) {}
+    } catch (_) { }
 
     // Bouncy tactile animation on helper buttons
     const stuckBtn = document.getElementById('btn-stuck-step');
@@ -3816,15 +5424,17 @@ function triggerTrainCompleted() {
     sceneManager.finishTrainHighGloss(state.trainData.trainGroup);
   }
 
-  // b) Auto-rotate the camera around the completed caboose
+  // b) Auto-rotate the camera around the completed model
   controls.autoRotate = true;
   controls.autoRotateSpeed = 2.0;
 
-  // Burst of steam puffs from the chimney
-  for (let i = 0; i < 20; i++) {
-    setTimeout(() => {
-      steamParticles.emitPuff(0, 3.2, 1.2);
-    }, i * 65);
+  // Steam effects belong to the locomotive only.
+  if (state.currentModelId === 'train') {
+    for (let i = 0; i < 20; i++) {
+      setTimeout(() => {
+        steamParticles.emitPuff(0, 3.2, 1.2);
+      }, i * 65);
+    }
   }
 
   sounds.playFanfare();
@@ -3842,16 +5452,78 @@ function triggerTrainCompleted() {
   } catch (e) { }
 
   const modal = document.getElementById('celebration-modal');
-  if (modal) modal.showModal();
+  if (modal) {
+    const isBoat = state.currentModelId === 'boat';
+    const isHouse = state.currentModelId === 'housetree';
+    const isBuggyCar = state.currentModelId === 'buggy_car';
+    const isPlane = state.currentModelId === 'plane';
+    const isAeroplane = state.currentModelId === 'aeroplane';
+    const isHelicopter = state.currentModelId === 'helicopter';
+    const isCafe = state.currentModelId === 'small_cafe';
+    const isTrain = state.currentModelId === 'train';
+    const blueprint = MODEL_BLUEPRINTS.find((model) => model.id === state.currentModelId);
+    const badgeEl = modal.querySelector('.celebration-badge');
+    const titleEl = modal.querySelector('.modal-title');
+    const subEl = modal.querySelector('.celebration-subtitle');
+    const statVals = modal.querySelectorAll('.cstat-val');
+    const statLabels = modal.querySelectorAll('.cstat-lbl');
+    const totalSteps = state.trainData?.steps?.length || blueprint?.brickCount || 42;
+    const totalPieces = blueprint?.brickCount || totalSteps;
 
-  // c) Activate the top "Drive Train" mode: show whistle and chug along the rails
-  setTimeout(() => {
-    switchMode('drive');
-    state.targetSpeed = 1.0;
-    state.driveSpeed = 0.6;
-    sounds.startChug(240);
-    showToast('🚂 All 4 Bags Assembled! Chugging along rails — tap whistle to blow horn!');
-  }, 1200);
+    if (badgeEl) badgeEl.textContent = isHouse ? '🎉 🏡 🌳' : isBoat ? '🎉 🚤 🌊' : isBuggyCar ? '🎉 🏎️ 🛞' : isPlane ? '🎉 ✈️ ☁️' : isAeroplane ? '🎉 ✈️ 🌐' : isHelicopter ? '🎉 🚁 🛟' : isCafe ? '🎉 ☕ 🥐' : '🎉 🚂 💨';
+    if (titleEl) titleEl.textContent = isHouse ? 'Cozy Cottage Fully Assembled!' : isBoat ? 'Speedboat Fully Assembled!' : isBuggyCar ? 'Buggy Car Fully Assembled!' : isPlane ? 'Propeller Plane Fully Assembled!' : isAeroplane ? 'Commercial Airliner Fully Assembled!' : isHelicopter ? 'Rescue Helicopter Fully Assembled!' : isCafe ? 'Corner Street Café Fully Assembled!' : 'Locomotive Fully Assembled!';
+    if (subEl) subEl.textContent = isHouse
+      ? 'All 196 precision garden & cottage interlocking elements have been locked into place!'
+      : isBoat
+      ? 'All 28 precision marine interlocking elements have been locked into place!'
+      : isBuggyCar
+      ? 'All 22 buggy car pieces are assembled and ready for an adventure!'
+      : isPlane
+      ? 'All 80 precision aircraft pieces are assembled and cleared for runway takeoff!'
+      : isAeroplane
+      ? 'All 126 precision aircraft pieces are assembled and cleared for runway takeoff!'
+      : isHelicopter
+      ? 'All 59 precision chopper pieces are assembled and cleared for helipad liftoff!'
+      : isCafe
+      ? 'All 162 precision architectural pieces are assembled and open for business!'
+      : 'All 170 precision interlocking elements have been locked into place!';
+    if (statVals && statVals.length >= 2) {
+      statVals[0].textContent = totalSteps;
+      statVals[1].textContent = totalPieces;
+    }
+    if (statLabels && statLabels.length >= 2) {
+      statLabels[0].textContent = isBuggyCar ? 'Parts Completed' : 'Steps Completed';
+      statLabels[1].textContent = isBuggyCar ? 'Buggy Pieces' : isBoat ? 'Boat Pieces' : isHouse ? 'House Pieces' : isPlane ? 'Plane Pieces' : isAeroplane ? 'Airliner Pieces' : isHelicopter ? 'Chopper Pieces' : isCafe ? 'Café Pieces' : 'ABS Bricks';
+    }
+    modal.querySelector('#btn-start-driving')?.style.setProperty('display', isTrain ? '' : 'none');
+    modal.querySelector('#btn-celebration-horn')?.style.setProperty('display', isTrain ? '' : 'none');
+    modal.showModal();
+  }
+
+  // c) Completion feedback
+  if (state.currentModelId === 'train') {
+    setTimeout(() => {
+      switchMode('drive');
+      state.targetSpeed = 1.0;
+      state.driveSpeed = 0.6;
+      sounds.startChug(240);
+      showToast('🚂 All 4 Bags Assembled! Chugging along rails — tap whistle to blow horn!');
+    }, 1200);
+  } else if (state.currentModelId === 'boat') {
+    showToast('🚤 Speedboat Complete! All 4 Bags assembled and ready to cruise!');
+  } else if (state.currentModelId === 'housetree') {
+    showToast('🏡 Cozy House & Tree Complete! All 196 parts assembled in the sunny garden!');
+  } else if (state.currentModelId === 'buggy_car') {
+    showToast('🏎️ Buggy Car complete! All 22 pieces are ready for an adventure!');
+  } else if (state.currentModelId === 'plane') {
+    showToast('✈️ Propeller Plane Complete! Cleared for takeoff on the runway!');
+  } else if (state.currentModelId === 'aeroplane') {
+    showToast('✈️ Commercial Airliner Jet Complete! Cleared for runway takeoff!');
+  } else if (state.currentModelId === 'helicopter') {
+    showToast('🚁 Rescue Helicopter Complete! Cleared for helipad liftoff!');
+  } else if (state.currentModelId === 'small_cafe') {
+    showToast('☕ Corner Street Café Complete! The espresso machine is ready!');
+  }
 }
 
 function resetTrainBuild() {
@@ -3873,6 +5545,8 @@ function resetTrainBuild() {
   });
   allOtherSceneBricks.length = 0;
   state.placedBricks = allOtherSceneBricks;
+  occupancyGrid.clear();
+  brickWorldManager?.occupancyGrid?.clear?.();
 
   if (state.trainData?.steps) {
     state.trainData.steps.forEach((s) => {
@@ -3895,17 +5569,21 @@ function resetTrainBuild() {
   // - Camera type: PerspectiveCamera (FOV: 42, near: 0.1, far: 1000).
   // - Set default camera position: camera.position.set(22, 16, 28).
   // - Set target / lookAt center: controls.target.set(0, 1.2, 0); camera.lookAt(0, 1.2, 0).
-  camera.fov = 42;
+  camera.fov = state.currentModelId === 'boat' ? 50 : (state.currentModelId === 'buggy_car' || state.currentModelId === 'plane' || state.currentModelId === 'aeroplane' || state.currentModelId === 'helicopter') ? 44 : 42;
   camera.near = 0.1;
   camera.far = 1000;
   camera.updateProjectionMatrix();
-  camera.position.set(22, 16, 28);
-  controls.target.set(0, 1.2, 0);
-  camera.lookAt(0, 1.2, 0);
+  const resetCameraView = getModelCameraView();
+  const resetCameraPosition = resetCameraView.position;
+  const resetCameraTarget = resetCameraView.target;
+  camera.position.copy(resetCameraPosition);
+  controls.target.copy(resetCameraTarget);
+  camera.lookAt(resetCameraTarget);
   controls.update();
 
   updateBrickCount();
   renderToyPartsTray();
+  saveGameProgress();
   sounds.playPop();
   showToast('🔄 Scene & Camera reset to LeoCAD Isometric perspective!');
 }
@@ -3919,55 +5597,32 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   if (state.isDragging) return;
   if (e.button !== 0 && e.pointerType === 'mouse') return;
 
+  // Requirement 2: When Full Model Preview is active, piece picking & snapping is locked
+  if (state.isShowingPreview || window.isShowingPreview) return;
+
   // Requirement 3: When Inspect View is active, dragging pieces from scene is disabled.
   // OrbitControls handles turntable rotation gestures unobstructed.
   if (state.isInspectViewActive) return;
 
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(mouse, camera);
-
   // 2b) Direct 3D Scene Picking: Clicking/touching ANY already-placed piece in 3D scene
   if (allOtherSceneBricks.length > 0) {
-    const hits = raycaster.intersectObjects(allOtherSceneBricks, true);
-    if (hits.length > 0) {
-      let hitObj = hits[0].object;
-      let root = hitObj.userData?.rootBrick;
-      if (!root) {
-        let curr = hitObj;
-        while (curr && curr !== scene) {
-          if (allOtherSceneBricks.includes(curr)) {
-            root = curr;
-            break;
-          }
-          curr = curr.parent;
-        }
-      }
+    const candidate = getPlacedBrickHitAtPointer(e.clientX, e.clientY);
+    const root = candidate?.root;
+    const hitObj = candidate?.hit.object;
 
-      if (root && allOtherSceneBricks.includes(root)) {
-        const stepIdx = root?.userData?.stepIndex ?? hitObj?.userData?.stepIndex;
-        const isCorrectlyAligned =
-          root?.userData?.isCorrectlyPlaced ||
-          root?.userData?.isBlueprintAligned ||
-          root?.userData?.isPermanentlyLocked ||
-          hitObj?.userData?.isCorrectlyPlaced ||
-          hitObj?.userData?.isBlueprintAligned ||
-          hitObj?.userData?.isPermanentlyLocked ||
-          (stepIdx !== undefined && stepIdx !== null && state.builtSteps.has(stepIdx));
-
-        if (isCorrectlyAligned) {
-          // Locked in place - cannot be moved further!
-          pulseEmissiveHighlight(root, 0x38bdf8, 300);
-          showToast(`🔒 ${root.userData?.title || 'Piece'} is locked in place!`);
-          return;
-        }
-
-        e.preventDefault();
-        e.stopPropagation();
-        startDirectScenePick(root, e.clientX, e.clientY);
+    if (root) {
+      if (isPlacedBrickLocked(root, hitObj)) {
+        // Locked in place - cannot be moved further!
+        pulseEmissiveHighlight(root, 0x38bdf8, 300);
+        showToast(`🔒 ${root.userData?.title || 'Piece'} is locked in place!`);
         return;
       }
+
+      e.preventDefault();
+      e.stopPropagation();
+      updatePlacedBrickHover(null);
+      startDirectScenePick(root, e.clientX, e.clientY);
+      return;
     }
   }
 });
@@ -3977,15 +5632,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (!state.isInspectViewActive) return;
   const dist = Math.hypot(e.clientX - clickPointerDownPos.x, e.clientY - clickPointerDownPos.y);
   if (dist < 8) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    raycaster.setFromCamera(mouse, camera);
-    if (allOtherSceneBricks.length > 0) {
-      const hits = raycaster.intersectObjects(allOtherSceneBricks, true);
-      if (hits.length > 0) {
-        setCameraInspectMode(false);
-      }
+    if (getPlacedBrickHitAtPointer(e.clientX, e.clientY)) {
+      setCameraInspectMode(false);
     }
   }
 });
@@ -4152,7 +5800,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 // =========================================================
 // Home Button in Top HUD: returns to Home Screen
 document.getElementById('btn-home')?.addEventListener('click', () => {
-  try { sounds.playPop?.(); } catch (_) {}
+  try { sounds.playPop?.(); } catch (_) { }
   transitionToHome();
 });
 
@@ -4174,7 +5822,7 @@ document.getElementById('btn-auto-build')?.addEventListener('click', triggerAuto
 // Document-level event delegation backup: catches clicks on inner icon/label or dynamically rendered elements
 document.addEventListener('click', (e) => {
   const target = e.target.closest('#btn-stuck-step, .toy-stuck-btn, #btn-tray-autobuild, .auto-build-btn, #btn-auto-build');
-  if (target) {
+  if (target && !target.closest('#btn-show-me, .btn-show-me, #btn-tray-inspect')) {
     e.preventDefault();
     e.stopPropagation();
     autoBuildCurrentStep();
@@ -4324,6 +5972,11 @@ btnFlowFreePick?.addEventListener('click', () => {
 
 // Mode Switcher
 function switchMode(newMode) {
+  if (newMode === 'drive' && state.currentModelId !== 'train') {
+    showToast('Drive mode is available for the steam train.');
+    return;
+  }
+
   state.mode = newMode;
 
   const btnTrain = document.getElementById('btn-train-mode');
@@ -4344,17 +5997,19 @@ function switchMode(newMode) {
     if (driveHUD) driveHUD.style.display = 'none';
     if (scenicRailwayGroup) scenicRailwayGroup.visible = false;
     if (builderGhostGroup) builderGhostGroup.visible = false;
-    if (trainBuildMatGroup) trainBuildMatGroup.visible = true;
+    if (trainBuildMatGroup) trainBuildMatGroup.visible = state.currentModelId === 'train';
 
     state.trainZ = 0;
-    if (state.trainData && state.trainData.trainGroup) {
+    if (state.currentModelId === 'train' && state.trainData && state.trainData.trainGroup) {
       state.trainData.trainGroup.position.set(0, 0, 0);
     }
 
     ghostContainer.visible = false;
 
     sounds.stopChug();
-    showToast('Build Mode: Drag current layer pieces from the tray onto the train!');
+    showToast(state.currentModelId === 'train'
+      ? 'Build Mode: Drag current layer pieces from the tray onto the train!'
+      : 'Build Mode: Drag the highlighted piece from the tray onto its glowing guide!');
   } else if (newMode === 'builder') {
     btnBuilder?.classList.add('active');
     if (stepHUD) stepHUD.style.display = 'none';
@@ -4365,7 +6020,7 @@ function switchMode(newMode) {
     if (trainBuildMatGroup) trainBuildMatGroup.visible = false;
 
     state.trainZ = 0;
-    if (state.trainData && state.trainData.trainGroup) {
+    if (state.currentModelId === 'train' && state.trainData && state.trainData.trainGroup) {
       state.trainData.trainGroup.position.set(0, 0, 0);
     }
 
@@ -4439,7 +6094,8 @@ document.getElementById('btn-close-celebration')?.addEventListener('click', () =
 // 8. FREE BUILDER & DRIVE CONTROLS
 // =========================================================
 function handleFreeBuildClick() {
-  const hits = raycaster.intersectObjects([baseplateGroup, ...state.placedBricks], true).filter((h) => !h.object.userData?.isEnvironment);
+  const hits = raycaster.intersectObjects([baseplateGroup, ...state.placedBricks], true)
+    .filter((h) => h.object.isMesh && !h.object.userData?.isEnvironment);
   if (hits.length === 0) return;
 
   const hit = hits[0];
@@ -4532,7 +6188,9 @@ function handleFreeBuildClick() {
   mesh.userData = {
     isFreeBrick: true,
     brickId,
-    name: brickDef.name
+    name: brickDef.name,
+    pieceKey: state.selectedPiece,
+    colorKey: state.selectedColor
   };
 
   scene.add(mesh);
@@ -4747,11 +6405,11 @@ window.addEventListener('keydown', (e) => {
 
   // 6. Parts Tray Rummage Scrolling (A / D)
   if (e.key === 'a' || e.key === 'A') {
-    document.getElementById('toy-tray-container')?.scrollBy({ left: -260, behavior: 'smooth' });
+    scrollPartsTray(-1, 260);
     return;
   }
   if (e.key === 'd' || e.key === 'D') {
-    document.getElementById('toy-tray-container')?.scrollBy({ left: 260, behavior: 'smooth' });
+    scrollPartsTray(1, 260);
     return;
   }
 
@@ -4815,14 +6473,49 @@ function showToast(message) {
   }, 4500);
 }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+function handleWindowResize() {
+  const aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = aspect;
+  camera.fov = aspect < 1.0 ? 58 : 42;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
   if (piecePreviewViewer) {
     piecePreviewViewer.resize();
   }
+}
+
+window.addEventListener('resize', handleWindowResize);
+window.addEventListener('orientationchange', () => {
+  setTimeout(handleWindowResize, 100);
+});
+
+// Run once on load to ensure proper aspect and fov
+handleWindowResize();
+
+// Prevent UI touch/click bleed-through into 3D scene controls & raycasting
+const stopUiPropagation = (e) => {
+  e.stopPropagation();
+};
+
+['pointerdown', 'touchstart', 'mousedown'].forEach((evt) => {
+  const uiSelectors = [
+    '#workshop-ui-layer',
+    '#clackety-bottom-hud',
+    '.top-toy-hud',
+    '#camera-dock',
+    '#parts-tray',
+    '#drag-alignment-pill',
+    '#celebration-modal',
+    '.clackety-wood-plank',
+    '.clackety-bag-tabs'
+  ];
+  uiSelectors.forEach((sel) => {
+    document.querySelectorAll(sel).forEach((el) => {
+      el.addEventListener(evt, stopUiPropagation, { passive: true });
+    });
+  });
 });
 
 // =========================================================
@@ -4835,6 +6528,15 @@ function animate() {
 
   const delta = clock.getDelta();
   const now = performance.now();
+  if (state.currentScreen === 'builder' && state.currentModelId === 'boat') {
+    boatEnvironment.update(delta);
+  }
+  if (state.currentScreen === 'builder' && (state.currentModelId === 'plane' || state.currentModelId === 'aeroplane') && skyEnvironment?.update) {
+    skyEnvironment.update(delta, clock.getElapsedTime());
+  }
+  if (state.currentScreen === 'builder' && state.currentModelId === 'helicopter' && helipadEnvironment?.update) {
+    helipadEnvironment.update(delta, clock.getElapsedTime());
+  }
 
   // 0. Update Home Screen & render if on Home Screen
   if (state.currentScreen === 'home') {
@@ -4999,6 +6701,20 @@ function animate() {
   steamParticles.update(delta);
   controls.update();
   renderer.render(scene, camera);
+}
+
+// Expose builder API on window for external overlays and modals
+window.transitionToBuilder = transitionToBuilder;
+window.loadModel = loadModel;
+window.transitionToHome = transitionToHome;
+window.toggleShowMePreview = toggleShowMePreview;
+window.initiateTrayBrickDrag = initiateTrayBrickDrag;
+window.sounds = sounds;
+window.modelPreviewManager = modelPreviewManager;
+try {
+  modelPreviewManager.init();
+} catch (e) {
+  console.warn('modelPreviewManager init:', e);
 }
 
 animate();

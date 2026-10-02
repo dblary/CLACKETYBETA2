@@ -266,6 +266,10 @@ function initOffscreenRenderer() {
   }
 }
 
+export function clearThumbnailCache() {
+  thumbnailCache.clear();
+}
+
 /**
  * Automated dynamic thumbnail generator for individual brick meshes or step objects.
  * a) Clones target brick mesh and centers geometry around [0, 0, 0].
@@ -277,8 +281,10 @@ function initOffscreenRenderer() {
 export function generatePieceThumbnail(target) {
   if (!target) return null;
 
-  // Cache key resolution
-  const cacheKey = target.step ? `step_${target.step}` : (target.uuid || target.name || null);
+  // Cache key resolution (isolated by model / piece identifier)
+  const cacheKey = target.step
+    ? `step_${target.modelId || 'm'}_${target.step}_${target.shortTitle || target.title || ''}`
+    : (target.uuid || target.name || null);
   if (cacheKey && thumbnailCache.has(cacheKey)) {
     return thumbnailCache.get(cacheKey);
   }

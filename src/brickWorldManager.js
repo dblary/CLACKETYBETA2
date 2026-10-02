@@ -5,6 +5,8 @@ import * as CANNON from 'cannon-es';
 // 1. CONSTANTS & GRID OCCUPANCY
 // ==========================================
 export const STUD_PITCH = 0.8;      // Standard LDraw horizontal stud unit
+export const PLATE_HEIGHT = 0.32;   // Standard plate height unit
+export const BRICK_HEIGHT = 0.96;   // Standard brick height unit (3 plates)
 export const SNAP_DISTANCE = 2.5; // Balanced kid-friendly snap radius (2.5 units)
 
 export class BrickWorldManager {

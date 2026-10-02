@@ -117,10 +117,10 @@ export class HomeScreen {
         </div>
       </header>
 
-      <!-- 3. RIGHT SIDE: UIVERSE 3D INTERACTIVE MENU -->
-      <main class="home-menu-layout">
+      <!-- 3. RIGHT SIDE: UIVERSE 3D INTERACTIVE MENU & ACTION COLUMN -->
+      <main class="home-menu-layout title-action-column">
         <!-- 1. PRIMARY: Huge 3D Green PLAY Button -->
-        <button id="btn-home-play" class="uiverse-btn-play interactive" aria-label="Start Building">
+        <button id="btn-home-play" class="uiverse-btn-play play-btn interactive" aria-label="Start Building">
           <span class="sparkle-icon">✨</span>
           <div class="play-icon-disc">
             <svg class="play-triangle-svg" viewBox="0 0 24 24">
@@ -189,6 +189,13 @@ export class HomeScreen {
             </div>
             <div class="uiverse-card-item">
               <div class="card-item-info">
+                <h4>🚤 Speedboat Adventure</h4>
+                <p>28 Parts • 4 Bags • Hydrodynamic Racer</p>
+              </div>
+              <button class="uiverse-modal-action-btn btn-load-build" data-build="boat">Build Boat</button>
+            </div>
+            <div class="uiverse-card-item">
+              <div class="card-item-info">
                 <h4>🏰 Rainbow Castle</h4>
                 <p>94 Bricks • In Progress</p>
               </div>
@@ -215,6 +222,13 @@ export class HomeScreen {
           <div class="uiverse-modal-content">
             <div class="uiverse-card-item">
               <div class="card-item-info">
+                <h4>🚤 Build Speedboat Adventure</h4>
+                <p>28 Marine Parts • 4 Bags • Reward: ⭐ 12</p>
+              </div>
+              <button class="uiverse-modal-action-btn btn-start-chal" data-chal="boat">Build!</button>
+            </div>
+            <div class="uiverse-card-item">
+              <div class="card-item-info">
                 <h4>🚒 Build a Fire Engine</h4>
                 <p>24 Bricks • Easy • Reward: ⭐ 5</p>
               </div>
@@ -222,17 +236,10 @@ export class HomeScreen {
             </div>
             <div class="uiverse-card-item">
               <div class="card-item-info">
-                <h4>🏡 Build a Cozy Treehouse</h4>
-                <p>36 Bricks • Fun • Reward: ⭐ 8</p>
+                <h4>🚀 Build Space Rocket</h4>
+                <p>58 Parts • Medium • Reward: ⭐ 10</p>
               </div>
-              <button class="uiverse-modal-action-btn btn-start-chal" data-chal="treehouse">Build!</button>
-            </div>
-            <div class="uiverse-card-item">
-              <div class="card-item-info">
-                <h4>🚁 Build a Rescue Helicopter</h4>
-                <p>32 Bricks • Medium • Reward: ⭐ 10</p>
-              </div>
-              <button class="uiverse-modal-action-btn btn-start-chal" data-chal="helicopter">Build!</button>
+              <button class="uiverse-modal-action-btn btn-start-chal" data-chal="rocket">Build!</button>
             </div>
           </div>
         </div>
@@ -357,13 +364,18 @@ export class HomeScreen {
 
     window.addEventListener('mousemove', this.onMouseMoveBound);
 
-    // PLAY Button Click
-    const playBtn = this.container.querySelector('#btn-home-play');
+    // PLAY Button Click (Triggers Model Select Modal Overlay)
+    const playBtn = this.container.querySelector('#btn-home-play') || this.container.querySelector('.play-btn');
     if (playBtn) {
       playBtn.addEventListener('click', (e) => {
         e.preventDefault();
         this.playPopSound();
-        this.triggerPlayTransition();
+        const modelSelectModal = document.getElementById('model-select-modal');
+        if (modelSelectModal) {
+          modelSelectModal.classList.add('active');
+        } else {
+          this.triggerPlayTransition('train');
+        }
       });
     }
 
@@ -453,15 +465,16 @@ export class HomeScreen {
         this.playPopSound();
         const modal = actionBtn.closest('.uiverse-modal-backdrop');
         if (modal) modal.classList.remove('active');
-        this.triggerPlayTransition();
+        const buildId = actionBtn.getAttribute('data-build') || actionBtn.getAttribute('data-chal') || 'train';
+        this.triggerPlayTransition(buildId);
       });
     });
   }
 
-  triggerPlayTransition() {
+  triggerPlayTransition(buildId = 'train') {
     this.hide();
     if (typeof this.onPlay === 'function') {
-      this.onPlay();
+      this.onPlay(buildId);
     }
   }
 

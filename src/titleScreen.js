@@ -22,7 +22,7 @@ export class TitleScreen {
     this.container = options.container || document.getElementById('title-screen-overlay');
     this.canvas = options.canvas || document.getElementById('title-canvas');
     this.startBtn = options.startBtn || document.getElementById('start-btn');
-    this.onStartBuilding = options.onStartBuilding || (() => {});
+    this.onStartBuilding = options.onStartBuilding || (() => { });
     this.sounds = options.sounds || {};
 
     this.assetPath = options.assetPath || './assets/clackety_logo.glb';
@@ -206,15 +206,35 @@ export class TitleScreen {
   }
 
   updateLogoScaleAndPosition() {
-    if (!this.logoPivot) return;
+    if (!this.logoPivot || !this.camera || !this.canvas) return;
 
-    const isSmallScreen = window.innerWidth < 640;
-    // Scale appropriately (approx 0.36 - 0.40 uniform scale)
-    const scale = isSmallScreen ? 0.28 : 0.36;
+    const width = this.canvas.clientWidth || window.innerWidth || 1;
+    const height = this.canvas.clientHeight || window.innerHeight || 1;
+    const aspect = width / height;
+
+    if (aspect < 1.0) {
+      this.camera.fov = Math.min(62, 38 / Math.max(aspect, 0.48));
+    } else {
+      this.camera.fov = 38;
+    }
+    this.camera.updateProjectionMatrix();
+
+    let scale;
+    let yOffset;
+
+    if (height < 450) {
+      // Requirement 3: adjust this.logoPivot.scale to 0.28–0.32 when viewport height is under 450px
+      scale = 0.30;
+      yOffset = 1.05;
+    } else if (width < 640 || height < 640) {
+      scale = 0.34;
+      yOffset = 1.25;
+    } else {
+      scale = 0.42;
+      yOffset = 1.48;
+    }
+
     this.logoPivot.scale.set(scale, scale, scale);
-
-    // Position on top (centered horizontally, raised to top header region)
-    const yOffset = isSmallScreen ? 1.25 : 1.48;
     this.logoPivot.position.set(0, yOffset, 0);
   }
 
@@ -293,7 +313,7 @@ export class TitleScreen {
       if (this.sounds && typeof this.sounds.playPop === 'function') {
         this.sounds.playPop();
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // Button click squash animation
     if (this.startBtn) {

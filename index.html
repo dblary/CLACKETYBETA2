@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Clackety: 3D Builder</title>
   <meta name="application-name" content="Clackety 3D">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fredoka:wght@600;700;800&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./src/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚂</text></svg>">
 
@@ -40,7 +41,7 @@
     <div class="loading-bar-bg">
       <div class="loading-bar-fill" id="loading-bar"></div>
     </div>
-    <p class="loading-tip">Loading 170 precision interlocking elements & textures</p>
+    <p class="loading-tip" id="loading-tip">Loading 170 precision interlocking elements & textures</p>
   </div>
 
   <!-- Main UI Layer (Workshop Builder - Shown when Play is pressed) -->
@@ -52,6 +53,10 @@
         <button id="btn-stuck-step" class="toy-stuck-btn" title="Stuck? Tap to auto-build this step! 🪄" aria-label="Auto-build current piece">
           <span class="stuck-icon">🪄</span>
           <span class="stuck-label">Build Step</span>
+        </button>
+        <button id="btn-show-me" class="toy-show-me-btn btn-show-me" title="Show complete model showcase preview" aria-label="Toggle full model preview">
+          <span class="show-me-icon" id="show-me-icon">📖</span>
+          <span class="show-me-label" id="show-me-label">Show Me!</span>
         </button>
       </div>
       <div class="toy-progress-pill">
@@ -65,19 +70,9 @@
     </div>
 
     <!-- CLACKETY 3D BUILDER WOODEN CARVED BOTTOM TRAY (Exact Match to Reference Design) -->
-    <div id="clackety-bottom-hud" class="clackety-bottom-hud interactive" aria-label="Clackety 3D Builder Workshop Controls">
-      <!-- TOP ROW: Logo Wooden Sign + 4 Carved Bag Tabs + Action Buttons -->
+    <div id="clackety-bottom-hud" class="clackety-bottom-hud bottom-tray-container interactive" aria-label="Clackety 3D Builder Workshop Controls">
+      <!-- TOP ROW: 4 Carved Bag Tabs + Action Buttons -->
       <div class="clackety-top-row">
-        <!-- Carved Dark Wood Logo Sign -->
-        <div class="clackety-logo-sign" title="Clackety 3D Builder">
-          <div class="logo-leaf leaf-left">🍃</div>
-          <div class="logo-leaf leaf-right">🌿</div>
-          <div class="logo-text-block">
-            <span class="logo-title-clackety">Clackety</span>
-            <span class="logo-title-builder">3D Builder</span>
-          </div>
-        </div>
-
         <!-- 4 Clay/Wood Carved Bag Tabs -->
         <div class="tray-tabs-header clackety-bag-tabs" id="tray-tabs-header" role="tablist">
           <button class="tray-tab clackety-tab tab-bag-1 active" data-stage="1" id="tab-bag-1" role="tab" aria-selected="true" title="Bag 1">
@@ -144,8 +139,8 @@
           <button id="btn-tray-autobuild" class="clackety-action-btn auto-build-btn" title="Stuck? Tap to build current piece! 🪄" aria-label="Auto-build next piece">
             <span class="action-btn-circle">🪄</span>
           </button>
-          <button id="btn-tray-inspect" class="clackety-action-btn" title="Inspect / Toggle Ghost Guide">
-            <span class="action-btn-circle">🔍</span>
+          <button id="btn-tray-inspect" class="clackety-action-btn btn-show-me" title="Inspect / Show Complete Model (Show Me!)" aria-label="Show complete model preview">
+            <span class="action-btn-circle">📖</span>
           </button>
           <button id="btn-tray-catalog" class="clackety-action-btn" title="Catalog / Free Builder">
             <span class="action-btn-circle">
@@ -309,9 +304,292 @@
     </div>
   </dialog>
 
+  <!-- Model Selection / Blueprint Switcher Dialog -->
+  <dialog id="model-picker-modal" class="custom-modal">
+    <div class="modal-card blueprint-picker-card">
+      <div class="modal-header">
+        <h2 class="modal-title">🧱 Choose a Model to Build</h2>
+        <button id="btn-close-model-picker" class="modal-close-icon" aria-label="Close">✕</button>
+      </div>
+      <div class="model-picker-grid">
+        <div class="model-picker-card active" data-model="train">
+          <div class="model-card-badge">Featured • 42 Steps</div>
+          <div class="model-card-icon">🚂</div>
+          <h3 class="model-card-title">Steam Locomotive</h3>
+          <p class="model-card-desc">Classic freight steam locomotive with cabin throttle and brass whistle.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="train">Build Train</button>
+        </div>
+        <div class="model-picker-card" data-model="boat">
+          <div class="model-card-badge">New • 4 Bags (28 Parts)</div>
+          <div class="model-card-icon">🚤</div>
+          <h3 class="model-card-title">Speedboat Adventure</h3>
+          <p class="model-card-desc">Marine racing speedboat with cyan windshield, hydrodynamic hull, and outboard motor.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="boat">Build Boat</button>
+        </div>
+        <div class="model-picker-card" data-model="buggy_car">
+          <div class="model-card-badge">New • 4 Bags (22 Parts)</div>
+          <div class="model-card-icon">🏎️</div>
+          <h3 class="model-card-title">Buggy Car</h3>
+          <p class="model-card-desc">Sporty red buggy with a sturdy chassis, cockpit details, and chunky tires.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="buggy_car">Build Buggy</button>
+        </div>
+        <div class="model-picker-card" data-model="plane">
+          <div class="model-card-badge">Sky • 4 Bags (80 Parts)</div>
+          <div class="model-card-icon">✈️</div>
+          <h3 class="model-card-title">Sky High! Propeller Plane</h3>
+          <p class="model-card-desc">Dual-color aerobatic propeller airplane with spinning rotor, panoramic cockpit canopy, and landing gear.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="plane">Build Plane</button>
+        </div>
+        <div class="model-picker-card" data-model="aeroplane">
+          <div class="model-card-badge">Sky • 4 Bags (126 Parts)</div>
+          <div class="model-card-icon">✈️</div>
+          <h3 class="model-card-title">Commercial Airliner Jet</h3>
+          <p class="model-card-desc">Full-scale commercial passenger jet with dual turbofan engines, cabin windows, and vertical tail fin.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="aeroplane">Build Airliner</button>
+        </div>
+        <div class="model-picker-card" data-model="helicopter">
+          <div class="model-card-badge">Air • 4 Bags (59 Parts)</div>
+          <div class="model-card-icon">🚁</div>
+          <h3 class="model-card-title">Sky Rescue Helicopter</h3>
+          <p class="model-card-desc">Emergency rescue chopper with landing skids, forward searchlights, tail rotor, and rotating twin rotor blades.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="helicopter">Build Chopper</button>
+        </div>
+        <div class="model-picker-card" data-model="small_cafe">
+          <div class="model-card-badge">City • 4 Bags (162 Parts)</div>
+          <div class="model-card-icon">☕</div>
+          <h3 class="model-card-title">Corner Street Café</h3>
+          <p class="model-card-desc">Two-storey modular corner cafe with outdoor patio dining, striped awning, and espresso bar.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="small_cafe">Build Café</button>
+        </div>
+        <div class="model-picker-card" data-model="rocket">
+          <div class="model-card-badge">Space • 7 Stages</div>
+          <div class="model-card-icon">🚀</div>
+          <h3 class="model-card-title">Cosmic Explorer Rocket</h3>
+          <p class="model-card-desc">Multi-stage rocket with 4 booster engines and astronaut crew cockpit.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="rocket">Build Rocket</button>
+        </div>
+        <div class="model-picker-card" data-model="firetruck">
+          <div class="model-card-badge">City • 6 Stages</div>
+          <div class="model-card-icon">🚒</div>
+          <h3 class="model-card-title">Rescue Fire Engine</h3>
+          <p class="model-card-desc">6-wheel emergency response truck with dual sirens and 360° rescue ladder.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="firetruck">Build Engine</button>
+        </div>
+        <div class="model-picker-card" data-model="castle">
+          <div class="model-card-badge">Fantasy • 6 Stages</div>
+          <div class="model-card-icon">🏰</div>
+          <h3 class="model-card-title">Rainbow Castle</h3>
+          <p class="model-card-desc">Enchanted fortress with moat foundation, portcullis pillars, and grand spires.</p>
+          <button class="chunky-btn primary btn-select-model" data-model="castle">Build Castle</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
 
+
+
+  <!-- Model Selection Modal Overlay (Previous 8-Card Toy Style) -->
+  <div id="model-select-modal" class="model-select-modal" role="dialog" aria-modal="true" aria-label="Choose a model">
+    <div class="model-select-backdrop" id="model-select-backdrop"></div>
+    <div class="model-select-dialog">
+      <button id="btn-close-model-select" class="model-select-close-btn" aria-label="Close model selection">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 1L1 13M1 1L13 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="model-select-grid">
+        <!-- 1. Steam Train -->
+        <div class="model-choice-card card-train" data-model="train" id="choice-card-train" role="button" tabindex="0" aria-label="Steam Train">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-train" data-model="train" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Steam Train</div>
+        </div>
+
+        <!-- 2. Cargo Boat -->
+        <div class="model-choice-card card-boat" data-model="boat" id="choice-card-boat" role="button" tabindex="0" aria-label="Cargo Boat">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-boat" data-model="boat" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Cargo Boat</div>
+        </div>
+
+        <!-- 3. Cozy House & Tree -->
+        <div class="model-choice-card card-house" data-model="housetree" id="choice-card-housetree" role="button" tabindex="0" aria-label="Cozy House & Tree">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-housetree" data-model="housetree" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Cozy House &amp;<br>Tree</div>
+        </div>
+
+        <!-- 4. Buggy Car -->
+        <div class="model-choice-card card-purple" data-model="buggy_car" id="choice-card-buggy_car" role="button" tabindex="0" aria-label="Buggy Car">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-buggy_car" data-model="buggy_car" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Buggy Car</div>
+        </div>
+
+        <!-- 5. Propeller Plane -->
+        <div class="model-choice-card card-purple" data-model="plane" id="choice-card-plane" role="button" tabindex="0" aria-label="Propeller Plane">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-plane" data-model="plane" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Propeller Plane</div>
+        </div>
+
+        <!-- 6. Airliner Jet -->
+        <div class="model-choice-card card-purple" data-model="aeroplane" id="choice-card-aeroplane" role="button" tabindex="0" aria-label="Airliner Jet">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-aeroplane" data-model="aeroplane" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Airliner Jet</div>
+        </div>
+
+        <!-- 7. Rescue Chopper -->
+        <div class="model-choice-card card-purple" data-model="helicopter" id="choice-card-helicopter" role="button" tabindex="0" aria-label="Rescue Chopper">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-helicopter" data-model="helicopter" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Rescue Chopper</div>
+        </div>
+
+        <!-- 8. Street Café -->
+        <div class="model-choice-card card-purple" data-model="small_cafe" id="choice-card-small_cafe" role="button" tabindex="0" aria-label="Street Café">
+          <div class="choice-visual-wrap">
+            <canvas class="model-mini-canvas" id="model-mini-canvas-small_cafe" data-model="small_cafe" aria-hidden="true"></canvas>
+          </div>
+          <div class="choice-title">Street Café</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Application Logic -->
   <script type="module" src="./src/main.js"></script>
+
+  <!-- Modal Event Bindings & Live 3D Preview Init Script -->
+  <script type="module">
+    import { modelPreviewManager } from './src/modelPreviewManager.js';
+
+    // Initialize 3D Mini Viewports
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        modelPreviewManager.init();
+      });
+    } else {
+      modelPreviewManager.init();
+    }
+
+    // Direct Event Bindings for Model Selection Modal
+    const modal = document.getElementById('model-select-modal');
+    const closeBtn = document.getElementById('btn-close-model-select');
+    const cancelBtn = document.getElementById('btn-cancel-model-select');
+    const backdrop = document.getElementById('model-select-backdrop');
+
+    function openModelSelectModal() {
+      if (!modal) return;
+      try {
+        if (window.sounds && typeof window.sounds.playPop === 'function') {
+          window.sounds.playPop();
+        }
+      } catch (_) {}
+      modal.classList.add('active');
+      setTimeout(() => {
+        modelPreviewManager.resize();
+      }, 50);
+    }
+
+    function closeModelSelectModal() {
+      if (!modal) return;
+      try {
+        if (window.sounds && typeof window.sounds.playPop === 'function') {
+          window.sounds.playPop();
+        }
+      } catch (_) {}
+      modal.classList.remove('active');
+    }
+
+    // Play Button Integration: Listen on .play-btn, #btn-home-play, #start-btn
+    document.addEventListener('click', (e) => {
+      const playTarget = e.target.closest('.play-btn, #btn-home-play, #start-btn');
+      if (playTarget) {
+        e.preventDefault();
+        openModelSelectModal();
+      }
+    });
+
+    if (closeBtn) closeBtn.addEventListener('click', closeModelSelectModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModelSelectModal);
+    if (backdrop) backdrop.addEventListener('click', closeModelSelectModal);
+
+    // Escape key to close modal
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal && modal.classList.contains('active')) {
+        closeModelSelectModal();
+      }
+    });
+
+    // Dynamic Build Scene Transition on card / button click
+    function handleSelectModel(modelId) {
+      if (!modelId) return;
+      closeModelSelectModal();
+
+      // Hide title screen and home screen layout wrappers
+      const titleOverlay = document.getElementById('title-screen-overlay');
+      if (titleOverlay) {
+        titleOverlay.classList.add('fade-out');
+        setTimeout(() => { titleOverlay.style.display = 'none'; }, 400);
+      }
+      const homeScreen = document.getElementById('clackety-home-screen');
+      if (homeScreen) {
+        homeScreen.classList.add('home-hidden');
+      }
+
+      // Reveal active 3D canvas and gameplay HUD
+      const workshopUI = document.getElementById('workshop-ui-layer');
+      if (workshopUI) {
+        workshopUI.style.display = 'flex';
+      }
+
+      // Dispatch transition to builder with modelId ('train' or 'boat')
+      if (typeof window.transitionToBuilder === 'function') {
+        window.transitionToBuilder(modelId);
+      } else if (typeof window.loadModel === 'function') {
+        window.loadModel(modelId);
+      }
+    }
+
+    document.querySelectorAll('.model-choice-card, .choice-launch-btn').forEach((elem) => {
+      elem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const modelId = elem.getAttribute('data-model') || (elem.closest('.model-choice-card') ? elem.closest('.model-choice-card').getAttribute('data-model') : 'train');
+        handleSelectModel(modelId);
+      });
+
+      if (elem.classList.contains('model-choice-card')) {
+        elem.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const modelId = elem.getAttribute('data-model') || 'train';
+            handleSelectModel(modelId);
+          }
+        });
+      }
+    });
+
+    // Show Me Preview Toggle Handler (Manual Tap-to-Open & Tap-to-Close)
+    document.addEventListener('click', (e) => {
+      const showMeBtn = e.target.closest('#btn-show-me, .btn-show-me, #btn-tray-inspect');
+      if (showMeBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.toggleShowMePreview === 'function') {
+          window.toggleShowMePreview();
+        }
+      }
+    });
+  </script>
 </body>
 </html>

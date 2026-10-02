@@ -13,28 +13,28 @@ export { SNAP_DISTANCE } from './brickWorldManager.js';
  * - OrbitControls: enableDamping=true, dampingFactor=0.05, maxPolarAngle=PI/2.05, min=8, max=60
  */
 export const LEOCAD_CAMERA_CONFIG = {
-  fov: 38,
+  fov: 42,
   near: 0.1,
   far: 1000,
-  position: { x: 0, y: 5.0, z: 8.5 },
-  target: { x: 0, y: 0.4, z: 0 },
+  position: { x: 10.0, y: 9.0, z: 18.0 },
+  target: { x: 0, y: 2.4, z: 0 },
   enableDamping: true,
   dampingFactor: 0.08,
-  minPolarAngle: Math.PI / 6,    // ~30°
-  maxPolarAngle: Math.PI / 2.3,  // ~78°
-  minAzimuthAngle: -Math.PI / 1.8, // Limits orbit to front ~160°
-  maxAzimuthAngle: Math.PI / 1.8,
-  minDistance: 4.0,
-  maxDistance: 25.0 // Full zoom out across room diorama
+  minPolarAngle: Math.PI / 16,   // ~11°
+  maxPolarAngle: Math.PI / 2.05, // ~87°
+  minAzimuthAngle: -Infinity,
+  maxAzimuthAngle: Infinity,
+  minDistance: 3.5,
+  maxDistance: 38.0
 };
 
 export const TURNTABLE_INSPECT_CONFIG = {
   enableZoom: true,
-  minDistance: 4.0,
-  maxDistance: 25.0,
+  minDistance: 3.5,
+  maxDistance: 38.0,
   enablePan: false,
-  minPolarAngle: Math.PI / 6,
-  maxPolarAngle: Math.PI / 2.3
+  minPolarAngle: Math.PI / 16,
+  maxPolarAngle: Math.PI / 2.05
 };
 
 /**
@@ -65,26 +65,25 @@ export function updateBuildProgress(currentPlaced, totalInStage = 8, bagTitle = 
 
 /**
  * Compact 4-Button Camera Dock Controls (Calibrated Isometric Diorama)
- * Completely disables canvas free-orbit during building.
- * Wires the 4 buttons to the camera's spherical coordinates around lookTarget (0, 0.4, 0).
+ * Wires the 4 buttons to the camera's spherical coordinates around lookTarget (0, 2.4, 0).
  */
 export function setupCameraDockControls(camera, controls, THREEInstance = THREE) {
   if (!camera) return;
+  const lookTarget = new THREEInstance.Vector3(0, 2.4, 0);
+
   if (controls) {
     controls.enabled = false;
-    controls.target.set(0, 0.4, 0);
-    controls.minPolarAngle = Math.PI / 6;   // ~30°
-    controls.maxPolarAngle = Math.PI / 2.3; // ~78°
-    controls.minAzimuthAngle = -Math.PI / 1.8; // Limits orbit to front ~160°
-    controls.maxAzimuthAngle = Math.PI / 1.8;
-    controls.minDistance = 4.0;
-    controls.maxDistance = 25.0; // Full zoom out across room diorama
+    controls.target.copy(lookTarget);
+    controls.minPolarAngle = Math.PI / 16;  // ~11°
+    controls.maxPolarAngle = Math.PI / 2.05; // ~87°
+    controls.minAzimuthAngle = -Infinity;
+    controls.maxAzimuthAngle = Infinity;
+    controls.minDistance = 3.5;
+    controls.maxDistance = 38.0;
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.update();
   }
-
-  const lookTarget = new THREEInstance.Vector3(0, 0.4, 0);
 
   function getSpherical() {
     const offset = camera.position.clone().sub(lookTarget);
@@ -93,12 +92,10 @@ export function setupCameraDockControls(camera, controls, THREEInstance = THREE)
   }
 
   function applySpherical(spherical) {
-    // Clamp zoom range to diorama boundaries (4.0 to 25.0)
-    spherical.radius = Math.max(4.0, Math.min(25.0, spherical.radius));
-    // Clamp polar angle (PI/6 to PI/2.3)
-    spherical.phi = Math.max(Math.PI / 6, Math.min(Math.PI / 2.3, spherical.phi));
-    // Clamp azimuth angle (-PI/1.8 to PI/1.8)
-    spherical.theta = Math.max(-Math.PI / 1.8, Math.min(Math.PI / 1.8, spherical.theta));
+    // Clamp zoom range to diorama boundaries (3.5 to 38.0)
+    spherical.radius = Math.max(3.5, Math.min(38.0, spherical.radius));
+    // Clamp polar angle (PI/16 to PI/2.05)
+    spherical.phi = Math.max(Math.PI / 16, Math.min(Math.PI / 2.05, spherical.phi));
 
     camera.position.setFromSpherical(spherical).add(lookTarget);
     camera.lookAt(lookTarget);
@@ -265,6 +262,11 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
     // Only handle primary button (left mouse click or touch)
     if (e.button !== undefined && e.button !== 0) return;
 
+    // Do NOT allow dragging while full model preview is open (Interaction Lock)
+    if (window.isShowingPreview || (options.isShowingPreview && options.isShowingPreview())) {
+      return;
+    }
+
     // Do NOT allow dragging already-placed pieces (prevents infinite duplicate spawning)
     if (cardElement.classList.contains('placed') || cardElement.style.display === 'none') {
       cardElement.dispatchEvent(new CustomEvent('card-click', { detail: pieceData, bubbles: true }));
@@ -286,7 +288,8 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
 
     let isDragActive = false;
     let spawnedBrick = null;
-    const wasControlsEnabled = orbitControls ? orbitControls.enabled : false;
+    const wasControlsEnabled = orbitControls ? orbitControls.enabled : true;
+    if (orbitControls) orbitControls.enabled = false;
 
     // Detect tray bounds to know when pointer is actively dragged out of tray area
     const trayEl = document.getElementById('parts-tray') || cardElement.closest('#parts-tray, .toy-parts-tray');
@@ -312,7 +315,7 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
         // Require intentional drag gesture: moving out of the bottom tray or >16px displacement
         if ((dist > 8 && draggedOutOfTray) || dist > 16) {
           isDragActive = true;
-          if (orbitControls) orbitControls.enabled = false; // Prevent camera rotation while dragging
+          if (orbitControls) orbitControls.enabled = false;
 
           // 1. A piece only enters the scene as a floating follower when actively dragged out of the tray area
           spawnedBrick = initiateBrickDrag(pieceData, moveEvent.clientX, moveEvent.clientY);
@@ -336,7 +339,7 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
 
-      if (orbitControls) orbitControls.enabled = wasControlsEnabled;
+      if (orbitControls) orbitControls.enabled = true;
 
       if (isDragActive && spawnedBrick) {
         isDragActive = false;
@@ -346,7 +349,6 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
         handleBrickRelease(upEvent.clientX, upEvent.clientY, upEvent, brickToRelease);
       } else {
         // Simple click/tap on card:
-        // Do NOT spawn piece, do NOT lock into scene, do NOT increment placed counter!
         cardElement.dispatchEvent(new CustomEvent('card-click', { detail: pieceData, bubbles: true }));
       }
     };
@@ -356,7 +358,7 @@ export function setupCardDragListener(cardElement, pieceData, orbitControls, ini
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
 
-      if (orbitControls) orbitControls.enabled = wasControlsEnabled;
+      if (orbitControls) orbitControls.enabled = true;
       if (isDragActive && spawnedBrick && handleBrickRelease) {
         isDragActive = false;
         const brickToRelease = spawnedBrick;

@@ -100,6 +100,61 @@ export function createBrickEdgeLines(geometry, material) {
 export const createLegoEdgeLines = createBrickEdgeLines;
 
 
+export const TRAIN_ASSEMBLY_STAGES = [
+  {
+    id: 1,
+    bagNumber: 1,
+    name: 'Wheel Bogies & Rails',
+    label: 'Bag 1: Wheels',
+    shortName: 'Wheels',
+    icon: '⚙️',
+    totalParts: 6,
+    color: '#ef4444',
+    bgLight: '#fee2e2',
+    badgeColor: '#b91c1c',
+    stepIndices: [0, 1, 2, 3, 4, 5]
+  },
+  {
+    id: 2,
+    bagNumber: 2,
+    name: 'Chassis & Couplers',
+    label: 'Bag 2: Chassis',
+    shortName: 'Chassis',
+    icon: '🧱',
+    totalParts: 8,
+    color: '#0ea5e9',
+    bgLight: '#e0f2fe',
+    badgeColor: '#0284c7',
+    stepIndices: [6, 7, 8, 9, 10, 11, 12, 13]
+  },
+  {
+    id: 3,
+    bagNumber: 3,
+    name: 'Boiler & Cab Floor',
+    label: 'Bag 3: Boiler/Cab',
+    shortName: 'Boiler',
+    icon: '🔥',
+    totalParts: 14,
+    color: '#f59e0b',
+    bgLight: '#fef3c7',
+    badgeColor: '#d97706',
+    stepIndices: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+  },
+  {
+    id: 4,
+    bagNumber: 4,
+    name: 'Cab Roof & Whistle',
+    label: 'Bag 4: Roof/Whistle',
+    shortName: 'Roof',
+    icon: '🔔',
+    totalParts: 14,
+    color: '#8b5cf6',
+    bgLight: '#f3e8ff',
+    badgeColor: '#6d28d9',
+    stepIndices: [28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41]
+  }
+];
+
 // Step metadata configuration for the 42 granular assembly steps
 export const GRANULAR_STEPS_METADATA = [
   { step: 1, title: 'Front Wheel Bogie & Axles', shortTitle: 'Front Bogie', category: 'wheels', catLabel: 'Wheels', icon: '⚙️', primaryColor: '#222528', colors: ['#222528', '#c8d0d6'], desc: 'Heavy-duty electric contact alloy wheels and dual bogie truck.' },
@@ -361,10 +416,9 @@ export function loadTrainModel(onProgress) {
           const stepSize = new THREE.Vector3();
           stepBox.getSize(stepSize);
 
-          // Determine orientation & symmetry
-          // Long along X => 90 deg (PI/2); Long along Z => 0 deg; Round/Square => symmetric
-          const isCrosswise = stepSize.x > stepSize.z * 1.25;
-          const targetRotationY = isCrosswise ? Math.PI / 2 : 0;
+          // Source mesh transforms already contain each piece's authored orientation.
+          // Keep the drag wrapper neutral so it matches the ghost exactly.
+          const targetRotationY = 0;
           const isSquareOrRound = (stepMeta.category === 'round') || 
             (Math.abs(stepSize.x - stepSize.z) < 0.28) || 
             (stepMeta.icon === '●' || stepMeta.icon === '💡' || stepMeta.icon === '🔔');
@@ -396,6 +450,7 @@ export function loadTrainModel(onProgress) {
             mountPos,
             box: stepBox,
             targetRotationY,
+            rotationBakedIn: true,
             isSquareOrRound,
             stepSize,
             dimensions
@@ -414,6 +469,10 @@ export function loadTrainModel(onProgress) {
           chimneyPos,
           steps,
           stepCount: steps.length,
+          totalSteps: steps.length,
+          stages: TRAIN_ASSEMBLY_STAGES,
+          name: 'Steam Locomotive Workshop',
+          icon: '🚂',
           scale
         });
       },
@@ -548,4 +607,3 @@ export function createGhostStepPreview(stepData, trainGroup) {
 
   return ghostGroup;
 }
-

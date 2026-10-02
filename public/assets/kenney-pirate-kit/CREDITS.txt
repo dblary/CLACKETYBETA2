@@ -1,0 +1,17 @@
+Scenery models used by the Clackety boat lagoon
+
+Original asset pack: Kenney Pirate Kit
+Official page: https://kenney.nl/assets/pirate-kit
+License: Creative Commons CC0 1.0 (public domain dedication)
+
+The self-contained GLB copies in this folder were fetched from the Kenney
+Pirate Kit collection hosted at https://github.com/Hidencod/tge-assets.
+The collection identifies the models as Kenney CC0 assets.
+
+Models included:
+- palm-straight.glb
+- palm-detailed-bend.glb
+- rocks-sand-a.glb
+- rocks-sand-b.glb
+- patch-sand-foliage.glb
+- ship-small.glb
