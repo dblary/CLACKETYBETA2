@@ -992,6 +992,7 @@
    RESPONSIVE DESIGN (TABLETS & PHONES)
    ========================================================================== */
 @media (max-width: 900px) {
+
   .title-action-column,
   .home-menu-layout {
     padding-right: max(16px, env(safe-area-inset-right));

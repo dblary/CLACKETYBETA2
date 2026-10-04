@@ -18,7 +18,7 @@ export class HomeScreen {
     this.scene = options.scene;
     this.camera = options.camera;
     this.renderer = options.renderer;
-    this.onPlay = options.onPlay || (() => {});
+    this.onPlay = options.onPlay || (() => { });
     this.sounds = options.sounds || {};
     this.controls = options.controls || null;
 
@@ -484,7 +484,7 @@ export class HomeScreen {
         if (typeof this.sounds.playPop === 'function') this.sounds.playPop();
         else if (typeof this.sounds.playSnap === 'function') this.sounds.playSnap();
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   playStarSound() {
@@ -493,7 +493,7 @@ export class HomeScreen {
         if (typeof this.sounds.playCelebrationHorn === 'function') this.sounds.playCelebrationHorn();
         else this.playPopSound();
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   show() {

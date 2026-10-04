@@ -1,17 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Clackety: 3D Builder</title>
   <meta name="application-name" content="Clackety 3D">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fredoka:wght@600;700;800&family=Nunito:wght@800;900&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fredoka:wght@600;700;800&family=Nunito:wght@800;900&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="./src/style.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚂</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚂</text></svg>">
 
 </head>
+
 <body>
   <!-- Fullscreen 3D Viewport -->
   <div id="canvas-container"></div>
@@ -50,11 +56,13 @@
     <div class="top-toy-hud interactive">
       <div class="top-hud-left">
         <button id="btn-home" class="toy-circle-btn home-btn" title="Reset">🏠</button>
-        <button id="btn-stuck-step" class="toy-stuck-btn" title="Stuck? Tap to auto-build this step! 🪄" aria-label="Auto-build current piece">
+        <button id="btn-stuck-step" class="toy-stuck-btn" title="Stuck? Tap to auto-build this step! 🪄"
+          aria-label="Auto-build current piece">
           <span class="stuck-icon">🪄</span>
           <span class="stuck-label">Build Step</span>
         </button>
-        <button id="btn-show-me" class="toy-show-me-btn btn-show-me" title="Show complete model showcase preview" aria-label="Toggle full model preview">
+        <button id="btn-show-me" class="toy-show-me-btn btn-show-me" title="Show complete model showcase preview"
+          aria-label="Toggle full model preview">
           <span class="show-me-icon" id="show-me-icon">📖</span>
           <span class="show-me-label" id="show-me-label">Show Me!</span>
         </button>
@@ -70,64 +78,73 @@
     </div>
 
     <!-- CLACKETY 3D BUILDER WOODEN CARVED BOTTOM TRAY (Exact Match to Reference Design) -->
-    <div id="clackety-bottom-hud" class="clackety-bottom-hud bottom-tray-container interactive" aria-label="Clackety 3D Builder Workshop Controls">
+    <div id="clackety-bottom-hud" class="clackety-bottom-hud bottom-tray-container interactive"
+      aria-label="Clackety 3D Builder Workshop Controls">
       <!-- TOP ROW: 4 Carved Bag Tabs + Action Buttons -->
       <div class="clackety-top-row">
         <!-- 4 Clay/Wood Carved Bag Tabs -->
         <div class="tray-tabs-header clackety-bag-tabs" id="tray-tabs-header" role="tablist">
-          <button class="tray-tab clackety-tab tab-bag-1 active" data-stage="1" id="tab-bag-1" role="tab" aria-selected="true" title="Bag 1">
+          <button class="tray-tab clackety-tab tab-bag-1 active" data-stage="1" id="tab-bag-1" role="tab"
+            aria-selected="true" title="Bag 1">
             <span class="tab-leaf tl-top">🍃</span>
             <span class="tab-leaf tl-bot">🌱</span>
             <span class="tab-brick-svg">
               <svg width="24" height="24" viewBox="0 0 32 32">
-                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#ef4444"/>
-                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#b91c1c"/>
-                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#dc2626"/>
-                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fca5a5"/>
-                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fca5a5"/>
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#ef4444" />
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#b91c1c" />
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#dc2626" />
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fca5a5" />
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fca5a5" />
               </svg>
             </span>
             <span class="tab-text">Bag 1</span>
           </button>
 
-          <button class="tray-tab clackety-tab tab-bag-2" data-stage="2" id="tab-bag-2" role="tab" aria-selected="false" title="Bag 2">
+          <button class="tray-tab clackety-tab tab-bag-2" data-stage="2" id="tab-bag-2" role="tab" aria-selected="false"
+            title="Bag 2">
             <span class="tab-leaf tl-top">🍃</span>
             <span class="tab-leaf tl-bot">🌱</span>
             <span class="tab-brick-svg">
               <svg width="24" height="24" viewBox="0 0 32 32">
-                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#38bdf8"/>
-                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#0284c7"/>
-                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#0ea5e9"/>
-                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#bae6fd"/>
-                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#bae6fd"/>
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#38bdf8" />
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#0284c7" />
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#0ea5e9" />
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#bae6fd" />
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#bae6fd" />
               </svg>
             </span>
             <span class="tab-text">Bag 2</span>
           </button>
 
-          <button class="tray-tab clackety-tab tab-bag-3" data-stage="3" id="tab-bag-3" role="tab" aria-selected="false" title="Bag 3">
+          <button class="tray-tab clackety-tab tab-bag-3" data-stage="3" id="tab-bag-3" role="tab" aria-selected="false"
+            title="Bag 3">
             <span class="tab-leaf tl-top">🍃</span>
             <span class="tab-leaf tl-bot">🌱</span>
             <span class="tab-brick-svg">
               <svg width="24" height="24" viewBox="0 0 32 32">
-                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#facc15"/>
-                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#a16207"/>
-                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#ca8a04"/>
-                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fef08a"/>
-                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fef08a"/>
+                <path d="M16 3 L27 9 L16 15 L5 9 Z" fill="#facc15" />
+                <path d="M5 9 L16 15 L16 26 L5 20 Z" fill="#a16207" />
+                <path d="M16 15 L27 9 L27 20 L16 26 Z" fill="#ca8a04" />
+                <ellipse cx="11" cy="7.5" rx="3.2" ry="1.9" fill="#fef08a" />
+                <ellipse cx="21" cy="11.5" rx="3.2" ry="1.9" fill="#fef08a" />
               </svg>
             </span>
             <span class="tab-text">Bag 3</span>
           </button>
 
-          <button class="tray-tab clackety-tab tab-bag-4" data-stage="4" id="tab-bag-4" role="tab" aria-selected="false" title="Bag 4">
+          <button class="tray-tab clackety-tab tab-bag-4" data-stage="4" id="tab-bag-4" role="tab" aria-selected="false"
+            title="Bag 4">
             <span class="tab-leaf tl-top">🍃</span>
             <span class="tab-leaf tl-bot">🌱</span>
             <span class="tab-brick-svg">
               <svg width="24" height="24" viewBox="0 0 32 32">
-                <path d="M16 28 C7 20 2 15 2 8.5 C2 4 5.5 1 9.8 1 C12.5 1 14.8 2.3 16 4.4 C17.2 2.3 19.5 1 22.2 1 C26.5 1 30 4 30 8.5 C30 15 25 20 16 28 Z" fill="#f43f5e"/>
-                <path d="M16 25 C8 18 4 14 4 8.5 C4 5 6.5 2.5 9.8 2.5 C12.2 2.5 14.2 3.8 15.2 5.5 L16 7 L16.8 5.5 C17.8 3.8 19.8 2.5 22.2 2.5 C25.5 2.5 28 5 28 8.5 C28 14 24 18 16 25 Z" fill="#fb7185"/>
-                <ellipse cx="10" cy="6" rx="2.5" ry="1.5" fill="#ffe4e6"/>
+                <path
+                  d="M16 28 C7 20 2 15 2 8.5 C2 4 5.5 1 9.8 1 C12.5 1 14.8 2.3 16 4.4 C17.2 2.3 19.5 1 22.2 1 C26.5 1 30 4 30 8.5 C30 15 25 20 16 28 Z"
+                  fill="#f43f5e" />
+                <path
+                  d="M16 25 C8 18 4 14 4 8.5 C4 5 6.5 2.5 9.8 2.5 C12.2 2.5 14.2 3.8 15.2 5.5 L16 7 L16.8 5.5 C17.8 3.8 19.8 2.5 22.2 2.5 C25.5 2.5 28 5 28 8.5 C28 14 24 18 16 25 Z"
+                  fill="#fb7185" />
+                <ellipse cx="10" cy="6" rx="2.5" ry="1.5" fill="#ffe4e6" />
               </svg>
             </span>
             <span class="tab-text">Bag 4</span>
@@ -136,19 +153,21 @@
 
         <!-- Right Side Wooden Action Buttons (Auto-Build Step, Search/Inspect & Catalog/Grid) -->
         <div class="clackety-actions">
-          <button id="btn-tray-autobuild" class="clackety-action-btn auto-build-btn" title="Stuck? Tap to build current piece! 🪄" aria-label="Auto-build next piece">
+          <button id="btn-tray-autobuild" class="clackety-action-btn auto-build-btn"
+            title="Stuck? Tap to build current piece! 🪄" aria-label="Auto-build next piece">
             <span class="action-btn-circle">🪄</span>
           </button>
-          <button id="btn-tray-inspect" class="clackety-action-btn btn-show-me" title="Inspect / Show Complete Model (Show Me!)" aria-label="Show complete model preview">
+          <button id="btn-tray-inspect" class="clackety-action-btn btn-show-me"
+            title="Inspect / Show Complete Model (Show Me!)" aria-label="Show complete model preview">
             <span class="action-btn-circle">📖</span>
           </button>
           <button id="btn-tray-catalog" class="clackety-action-btn" title="Catalog / Free Builder">
             <span class="action-btn-circle">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#4a260f">
-                <rect x="3" y="3" width="7.5" height="7.5" rx="2"/>
-                <rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/>
-                <rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/>
-                <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/>
+                <rect x="3" y="3" width="7.5" height="7.5" rx="2" />
+                <rect x="13.5" y="3" width="7.5" height="7.5" rx="2" />
+                <rect x="3" y="13.5" width="7.5" height="7.5" rx="2" />
+                <rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" />
               </svg>
             </span>
           </button>
@@ -156,9 +175,11 @@
       </div>
 
       <!-- BOTTOM ROW: Carved Light Honey Wood Plank with Inset Arrows and Pieces Track -->
-      <section id="parts-tray" data-alias="toy-parts-tray" class="clackety-wood-plank interactive" aria-label="Available Building Pieces Tray">
+      <section id="parts-tray" data-alias="toy-parts-tray" class="clackety-wood-plank interactive"
+        aria-label="Available Building Pieces Tray">
         <!-- Inset Left Wooden Arrow Button -->
-        <button id="btn-tray-prev" class="wood-arrow-btn arrow-left" title="Scroll left" aria-label="Scroll pieces left">
+        <button id="btn-tray-prev" class="wood-arrow-btn arrow-left" title="Scroll left"
+          aria-label="Scroll pieces left">
           <span class="arrow-glyph">‹</span>
         </button>
 
@@ -168,7 +189,8 @@
         </div>
 
         <!-- Inset Right Wooden Arrow Button -->
-        <button id="btn-tray-next" class="wood-arrow-btn arrow-right" title="Scroll right" aria-label="Scroll pieces right">
+        <button id="btn-tray-next" class="wood-arrow-btn arrow-right" title="Scroll right"
+          aria-label="Scroll pieces right">
           <span class="arrow-glyph">›</span>
         </button>
       </section>
@@ -211,7 +233,8 @@
             <span class="tool-icon">↻</span>
             <span>Rotate (Q/E)</span>
           </button>
-          <button id="btn-simulate-physics" class="tool-btn" title="Simulate Real Physics & Gravity / Topple Cantilever (Key: P)">
+          <button id="btn-simulate-physics" class="tool-btn"
+            title="Simulate Real Physics & Gravity / Topple Cantilever (Key: P)">
             <span class="tool-icon">🎲</span>
             <span>Simulate (P)</span>
           </button>
@@ -323,7 +346,8 @@
           <div class="model-card-badge">New • 4 Bags (28 Parts)</div>
           <div class="model-card-icon">🚤</div>
           <h3 class="model-card-title">Speedboat Adventure</h3>
-          <p class="model-card-desc">Marine racing speedboat with cyan windshield, hydrodynamic hull, and outboard motor.</p>
+          <p class="model-card-desc">Marine racing speedboat with cyan windshield, hydrodynamic hull, and outboard
+            motor.</p>
           <button class="chunky-btn primary btn-select-model" data-model="boat">Build Boat</button>
         </div>
         <div class="model-picker-card" data-model="buggy_car">
@@ -337,28 +361,32 @@
           <div class="model-card-badge">Sky • 4 Bags (80 Parts)</div>
           <div class="model-card-icon">✈️</div>
           <h3 class="model-card-title">Sky High! Propeller Plane</h3>
-          <p class="model-card-desc">Dual-color aerobatic propeller airplane with spinning rotor, panoramic cockpit canopy, and landing gear.</p>
+          <p class="model-card-desc">Dual-color aerobatic propeller airplane with spinning rotor, panoramic cockpit
+            canopy, and landing gear.</p>
           <button class="chunky-btn primary btn-select-model" data-model="plane">Build Plane</button>
         </div>
         <div class="model-picker-card" data-model="aeroplane">
           <div class="model-card-badge">Sky • 4 Bags (126 Parts)</div>
           <div class="model-card-icon">✈️</div>
           <h3 class="model-card-title">Commercial Airliner Jet</h3>
-          <p class="model-card-desc">Full-scale commercial passenger jet with dual turbofan engines, cabin windows, and vertical tail fin.</p>
+          <p class="model-card-desc">Full-scale commercial passenger jet with dual turbofan engines, cabin windows, and
+            vertical tail fin.</p>
           <button class="chunky-btn primary btn-select-model" data-model="aeroplane">Build Airliner</button>
         </div>
         <div class="model-picker-card" data-model="helicopter">
           <div class="model-card-badge">Air • 4 Bags (59 Parts)</div>
           <div class="model-card-icon">🚁</div>
           <h3 class="model-card-title">Sky Rescue Helicopter</h3>
-          <p class="model-card-desc">Emergency rescue chopper with landing skids, forward searchlights, tail rotor, and rotating twin rotor blades.</p>
+          <p class="model-card-desc">Emergency rescue chopper with landing skids, forward searchlights, tail rotor, and
+            rotating twin rotor blades.</p>
           <button class="chunky-btn primary btn-select-model" data-model="helicopter">Build Chopper</button>
         </div>
         <div class="model-picker-card" data-model="small_cafe">
           <div class="model-card-badge">City • 4 Bags (162 Parts)</div>
           <div class="model-card-icon">☕</div>
           <h3 class="model-card-title">Corner Street Café</h3>
-          <p class="model-card-desc">Two-storey modular corner cafe with outdoor patio dining, striped awning, and espresso bar.</p>
+          <p class="model-card-desc">Two-storey modular corner cafe with outdoor patio dining, striped awning, and
+            espresso bar.</p>
           <button class="chunky-btn primary btn-select-model" data-model="small_cafe">Build Café</button>
         </div>
         <div class="model-picker-card" data-model="rocket">
@@ -394,21 +422,25 @@
     <div class="model-select-dialog">
       <button id="btn-close-model-select" class="model-select-close-btn" aria-label="Close model selection">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 1L1 13M1 1L13 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M13 1L1 13M1 1L13 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+            stroke-linejoin="round" />
         </svg>
       </button>
 
       <div class="model-select-grid">
         <!-- 1. Steam Train -->
-        <div class="model-choice-card card-train" data-model="train" id="choice-card-train" role="button" tabindex="0" aria-label="Steam Train">
+        <div class="model-choice-card card-train" data-model="train" id="choice-card-train" role="button" tabindex="0"
+          aria-label="Steam Train">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-train" data-model="train" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-train" data-model="train"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Steam Train</div>
         </div>
 
         <!-- 2. Cargo Boat -->
-        <div class="model-choice-card card-boat" data-model="boat" id="choice-card-boat" role="button" tabindex="0" aria-label="Cargo Boat">
+        <div class="model-choice-card card-boat" data-model="boat" id="choice-card-boat" role="button" tabindex="0"
+          aria-label="Cargo Boat">
           <div class="choice-visual-wrap">
             <canvas class="model-mini-canvas" id="model-mini-canvas-boat" data-model="boat" aria-hidden="true"></canvas>
           </div>
@@ -416,49 +448,61 @@
         </div>
 
         <!-- 3. Cozy House & Tree -->
-        <div class="model-choice-card card-house" data-model="housetree" id="choice-card-housetree" role="button" tabindex="0" aria-label="Cozy House & Tree">
+        <div class="model-choice-card card-house" data-model="housetree" id="choice-card-housetree" role="button"
+          tabindex="0" aria-label="Cozy House & Tree">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-housetree" data-model="housetree" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-housetree" data-model="housetree"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Cozy House &amp;<br>Tree</div>
         </div>
 
         <!-- 4. Buggy Car -->
-        <div class="model-choice-card card-purple" data-model="buggy_car" id="choice-card-buggy_car" role="button" tabindex="0" aria-label="Buggy Car">
+        <div class="model-choice-card card-purple" data-model="buggy_car" id="choice-card-buggy_car" role="button"
+          tabindex="0" aria-label="Buggy Car">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-buggy_car" data-model="buggy_car" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-buggy_car" data-model="buggy_car"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Buggy Car</div>
         </div>
 
         <!-- 5. Propeller Plane -->
-        <div class="model-choice-card card-purple" data-model="plane" id="choice-card-plane" role="button" tabindex="0" aria-label="Propeller Plane">
+        <div class="model-choice-card card-purple" data-model="plane" id="choice-card-plane" role="button" tabindex="0"
+          aria-label="Propeller Plane">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-plane" data-model="plane" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-plane" data-model="plane"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Propeller Plane</div>
         </div>
 
         <!-- 6. Airliner Jet -->
-        <div class="model-choice-card card-purple" data-model="aeroplane" id="choice-card-aeroplane" role="button" tabindex="0" aria-label="Airliner Jet">
+        <div class="model-choice-card card-purple" data-model="aeroplane" id="choice-card-aeroplane" role="button"
+          tabindex="0" aria-label="Airliner Jet">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-aeroplane" data-model="aeroplane" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-aeroplane" data-model="aeroplane"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Airliner Jet</div>
         </div>
 
         <!-- 7. Rescue Chopper -->
-        <div class="model-choice-card card-purple" data-model="helicopter" id="choice-card-helicopter" role="button" tabindex="0" aria-label="Rescue Chopper">
+        <div class="model-choice-card card-purple" data-model="helicopter" id="choice-card-helicopter" role="button"
+          tabindex="0" aria-label="Rescue Chopper">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-helicopter" data-model="helicopter" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-helicopter" data-model="helicopter"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Rescue Chopper</div>
         </div>
 
         <!-- 8. Street Café -->
-        <div class="model-choice-card card-purple" data-model="small_cafe" id="choice-card-small_cafe" role="button" tabindex="0" aria-label="Street Café">
+        <div class="model-choice-card card-purple" data-model="small_cafe" id="choice-card-small_cafe" role="button"
+          tabindex="0" aria-label="Street Café">
           <div class="choice-visual-wrap">
-            <canvas class="model-mini-canvas" id="model-mini-canvas-small_cafe" data-model="small_cafe" aria-hidden="true"></canvas>
+            <canvas class="model-mini-canvas" id="model-mini-canvas-small_cafe" data-model="small_cafe"
+              aria-hidden="true"></canvas>
           </div>
           <div class="choice-title">Street Café</div>
         </div>
@@ -494,7 +538,7 @@
         if (window.sounds && typeof window.sounds.playPop === 'function') {
           window.sounds.playPop();
         }
-      } catch (_) {}
+      } catch (_) { }
       modal.classList.add('active');
       setTimeout(() => {
         modelPreviewManager.resize();
@@ -507,7 +551,7 @@
         if (window.sounds && typeof window.sounds.playPop === 'function') {
           window.sounds.playPop();
         }
-      } catch (_) {}
+      } catch (_) { }
       modal.classList.remove('active');
     }
 
@@ -592,4 +636,5 @@
     });
   </script>
 </body>
+
 </html>

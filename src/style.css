@@ -34,11 +34,15 @@
   -webkit-user-select: none;
 }
 
-body, button, span, div {
+body,
+button,
+span,
+div {
   font-family: 'Fredoka', 'Nunito', sans-serif;
 }
 
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100vw;
@@ -74,7 +78,8 @@ html, body {
   inset: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 105; /* Sits above HomeScreen backdrop, below loading overlay (300) */
+  z-index: 105;
+  /* Sits above HomeScreen backdrop, below loading overlay (300) */
   pointer-events: none;
   opacity: 1;
   visibility: visible;
@@ -115,18 +120,19 @@ html, body {
 }
 
 /* Custom CSS Jelly Button (#start-btn) centered at bottom: 12% */
-#start-btn, .jelly-start-btn {
+#start-btn,
+.jelly-start-btn {
   position: absolute;
   bottom: 12%;
   left: 50%;
   transform: translateX(-50%);
   pointer-events: auto;
-  
+
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  
+
   padding: 16px 42px;
   font-family: var(--font-display);
   font-size: 22px;
@@ -134,7 +140,7 @@ html, body {
   letter-spacing: 0.5px;
   color: #ffffff;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-  
+
   background: linear-gradient(180deg, #4ade80 0%, #22c55e 55%, #16a34a 100%);
   border: 3.5px solid #ffffff;
   border-radius: 9999px;
@@ -142,14 +148,14 @@ html, body {
   outline: none;
   user-select: none;
   -webkit-user-select: none;
-  
+
   /* 3D Toy Push Bevel & Vibrant Ambient Glow */
-  box-shadow: 
+  box-shadow:
     0 8px 0 #15803d,
     0 16px 30px rgba(22, 163, 74, 0.45),
     inset 0 3px 6px rgba(255, 255, 255, 0.65),
     inset 0 -3px 6px rgba(0, 0, 0, 0.15);
-  
+
   /* Idle breathing animation */
   animation: jellyBreathe 2.4s ease-in-out infinite;
   transition: box-shadow 0.2s ease, filter 0.2s ease;
@@ -157,17 +163,20 @@ html, body {
 
 /* Idle Breathing Animation */
 @keyframes jellyBreathe {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateX(-50%) scale(1, 1);
-    box-shadow: 
+    box-shadow:
       0 8px 0 #15803d,
       0 16px 28px rgba(22, 163, 74, 0.4),
       inset 0 3px 6px rgba(255, 255, 255, 0.65),
       inset 0 -3px 6px rgba(0, 0, 0, 0.15);
   }
+
   50% {
     transform: translateX(-50%) scale(1.05, 0.95) translateY(2px);
-    box-shadow: 
+    box-shadow:
       0 6px 0 #15803d,
       0 22px 36px rgba(22, 163, 74, 0.55),
       inset 0 3px 6px rgba(255, 255, 255, 0.75),
@@ -176,7 +185,8 @@ html, body {
 }
 
 /* Hover Squash Animation */
-#start-btn:hover, .jelly-start-btn:hover {
+#start-btn:hover,
+.jelly-start-btn:hover {
   animation: jellyHoverSquash 0.65s cubic-bezier(0.34, 1.56, 0.64, 1) infinite alternate;
   filter: brightness(1.06);
 }
@@ -184,14 +194,15 @@ html, body {
 @keyframes jellyHoverSquash {
   0% {
     transform: translateX(-50%) scale(1.08, 0.92) translateY(-2px);
-    box-shadow: 
+    box-shadow:
       0 10px 0 #15803d,
       0 24px 40px rgba(22, 163, 74, 0.6),
       inset 0 4px 8px rgba(255, 255, 255, 0.8);
   }
+
   100% {
     transform: translateX(-50%) scale(0.95, 1.07) translateY(-6px);
-    box-shadow: 
+    box-shadow:
       0 14px 0 #15803d,
       0 28px 48px rgba(22, 163, 74, 0.65),
       inset 0 4px 8px rgba(255, 255, 255, 0.8);
@@ -199,9 +210,11 @@ html, body {
 }
 
 /* Active / Click Tactile Squash */
-#start-btn:active, #start-btn.clicked, .jelly-start-btn:active {
+#start-btn:active,
+#start-btn.clicked,
+.jelly-start-btn:active {
   transform: translateX(-50%) scale(0.91, 0.87) translateY(6px) !important;
-  box-shadow: 
+  box-shadow:
     0 2px 0 #15803d,
     0 6px 16px rgba(0, 0, 0, 0.3),
     inset 0 2px 4px rgba(0, 0, 0, 0.2) !important;
@@ -234,20 +247,35 @@ html, body {
 }
 
 @keyframes sparkleRotate {
-  0% { transform: scale(0.9) rotate(0deg); opacity: 0.85; }
-  50% { transform: scale(1.15) rotate(180deg); opacity: 1; }
-  100% { transform: scale(0.9) rotate(360deg); opacity: 0.85; }
+  0% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.85;
+  }
+
+  50% {
+    transform: scale(1.15) rotate(180deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(0.9) rotate(360deg);
+    opacity: 0.85;
+  }
 }
 
 @media (max-width: 640px) {
-  #start-btn, .jelly-start-btn {
+
+  #start-btn,
+  .jelly-start-btn {
     bottom: 10%;
     padding: 14px 32px;
     font-size: 19px;
   }
+
   .jelly-btn-text {
     font-size: 19px;
   }
+
   .jelly-btn-icon {
     font-size: 22px;
   }
@@ -289,14 +317,18 @@ body.inspect-view-active canvas:active {
 /* =========================================================
    PLAYFUL "JELLY" BUTTON & TRAY STYLING (Requirement 4)
    ========================================================= */
-.toy-btn, .tray-card {
+.toy-btn,
+.tray-card {
   background: #ffffff;
   border: 3px solid #e2e8f0;
-  border-bottom: 6px solid #cbd5e1; /* 3D push depth */
+  border-bottom: 6px solid #cbd5e1;
+  /* 3D push depth */
   border-radius: 20px;
   transition: transform 0.08s ease, border-bottom-width 0.08s ease;
 }
-.toy-btn:active, .tray-card:active {
+
+.toy-btn:active,
+.tray-card:active {
   transform: translateY(3px);
   border-bottom-width: 3px;
 }
@@ -585,8 +617,13 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes badgeWiggle {
-  0% { transform: translate(16px, 16px) scale(0.96); }
-  100% { transform: translate(16px, 16px) scale(1.04); }
+  0% {
+    transform: translate(16px, 16px) scale(0.96);
+  }
+
+  100% {
+    transform: translate(16px, 16px) scale(1.04);
+  }
 }
 
 /* Floating Circular Rotate Button for Touch & Mobile (Requirement 2) */
@@ -638,6 +675,7 @@ body.inspect-view-active canvas:active {
     height: 64px;
     box-shadow: 0 6px 22px rgba(234, 88, 12, 0.55), 0 3px 0 #9a3412;
   }
+
   .floating-rotate-btn .rotate-btn-icon {
     font-size: 32px;
   }
@@ -668,8 +706,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes hudFadeDown {
-  from { opacity: 0; transform: translateY(-12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hud-top-row {
@@ -743,7 +788,8 @@ body.inspect-view-active canvas:active {
 /* =========================================================
    BOTTOM VISUAL PIECE TRAY (Requirement 1)
    ========================================================= */
-.legacy-parts-tray, .tray-container {
+.legacy-parts-tray,
+.tray-container {
   position: absolute;
   bottom: 8px;
   left: 50%;
@@ -770,8 +816,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translate(-50%, 30px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 .tray-label-bar {
@@ -786,7 +839,8 @@ body.inspect-view-active canvas:active {
   z-index: 26;
 }
 
-.tray-label-bar button, .tray-label-bar .tray-progress-pill {
+.tray-label-bar button,
+.tray-label-bar .tray-progress-pill {
   pointer-events: auto;
 }
 
@@ -846,7 +900,11 @@ body.inspect-view-active canvas:active {
 }
 
 /* 1. FIX POINTER DRAG PROPAGATION: Disable HTML dragging across all UI elements */
-.tray-card, .tray-card img, #parts-tray, .toy-card, .toy-card img {
+.tray-card,
+.tray-card img,
+#parts-tray,
+.toy-card,
+.toy-card img {
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
@@ -854,7 +912,8 @@ body.inspect-view-active canvas:active {
 }
 
 /* Visual Picture Card for Each Piece matching reference design (78x78px) */
-.tray-card, .toy-card {
+.tray-card,
+.toy-card {
   min-width: 78px !important;
   width: 78px !important;
   height: 78px !important;
@@ -883,17 +942,26 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes cardPopIn {
-  from { opacity: 0; transform: translateY(14px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.tray-card:hover, .toy-card:hover {
+.tray-card:hover,
+.toy-card:hover {
   transform: translateY(-4px) scale(1.03);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
   border-bottom-color: #64748b !important;
 }
 
-.tray-card:active, .toy-card:active {
+.tray-card:active,
+.toy-card:active {
   cursor: grabbing;
   transform: translateY(3px) !important;
   border-bottom: 3px solid #94a3b8 !important;
@@ -907,8 +975,17 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes pulseCard {
-  0%, 100% { border-color: #00e5ff; box-shadow: 0 4px 0 #0284c7, 0 0 12px rgba(0, 229, 255, 0.35); }
-  50% { border-color: #00ff88; box-shadow: 0 4px 0 #059669, 0 0 20px rgba(0, 255, 136, 0.55); }
+
+  0%,
+  100% {
+    border-color: #00e5ff;
+    box-shadow: 0 4px 0 #0284c7, 0 0 12px rgba(0, 229, 255, 0.35);
+  }
+
+  50% {
+    border-color: #00ff88;
+    box-shadow: 0 4px 0 #059669, 0 0 20px rgba(0, 255, 136, 0.55);
+  }
 }
 
 .toy-card.is-being-dragged {
@@ -919,10 +996,23 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes trayBounce {
-  0% { transform: scale(0.92); }
-  40% { transform: scale(1.12) translateY(-6px); box-shadow: 0 8px 16px rgba(0, 229, 255, 0.45); border-color: #00e5ff; }
-  75% { transform: scale(0.98) translateY(1px); }
-  100% { transform: scale(1) translateY(0); }
+  0% {
+    transform: scale(0.92);
+  }
+
+  40% {
+    transform: scale(1.12) translateY(-6px);
+    box-shadow: 0 8px 16px rgba(0, 229, 255, 0.45);
+    border-color: #00e5ff;
+  }
+
+  75% {
+    transform: scale(0.98) translateY(1px);
+  }
+
+  100% {
+    transform: scale(1) translateY(0);
+  }
 }
 
 .toy-card.tray-bounce {
@@ -947,18 +1037,28 @@ body.inspect-view-active canvas:active {
   font-weight: 800;
   padding: 1px 5px;
   border-radius: 6px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   animation: pulseBadge 0.9s ease-in-out infinite alternate;
 }
 
 @keyframes foundationBouncyPulse {
-  0% { transform: translateY(0) scale(1); }
-  100% { transform: translateY(-7px) scale(1.05); }
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    transform: translateY(-7px) scale(1.05);
+  }
 }
 
 @keyframes pulseBadge {
-  0% { transform: scale(0.95); }
-  100% { transform: scale(1.08); }
+  0% {
+    transform: scale(0.95);
+  }
+
+  100% {
+    transform: scale(1.08);
+  }
 }
 
 
@@ -1062,8 +1162,13 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes skeletonShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .toy-card-icon-fallback {
@@ -1139,9 +1244,21 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes cardWiggle {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-8px); }
-  40%, 80% { transform: translateX(8px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-8px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(8px);
+  }
 }
 
 /* =========================================================
@@ -1411,8 +1528,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Celebration Modal */
@@ -1541,14 +1665,30 @@ body.inspect-view-active canvas:active {
   top: -6px;
 }
 
-.s1 { left: 8px; }
-.s2 { left: 22px; }
-.s3 { left: 36px; }
-.s4 { left: 50px; }
+.s1 {
+  left: 8px;
+}
+
+.s2 {
+  left: 22px;
+}
+
+.s3 {
+  left: 36px;
+}
+
+.s4 {
+  left: 50px;
+}
 
 @keyframes brickBounce {
-  0% { transform: translateY(0) scale(1); }
-  100% { transform: translateY(-16px) scale(1.05); }
+  0% {
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    transform: translateY(-16px) scale(1.05);
+  }
 }
 
 .loading-title {
@@ -1588,34 +1728,47 @@ body.inspect-view-active canvas:active {
     padding: 6px 10px;
     gap: 6px;
   }
-  .app-title { font-size: 15px; }
-  .badge-tag { display: none; }
+
+  .app-title {
+    font-size: 15px;
+  }
+
+  .badge-tag {
+    display: none;
+  }
+
   .build-guide-card {
     top: 68px;
     right: 8px;
     width: 220px;
     padding: 8px;
   }
+
   .guide-viewport-wrap {
     height: 100px;
   }
+
   .toy-parts-tray {
     bottom: 8px;
     width: calc(100vw - 16px);
     padding: 6px 8px;
   }
+
   .toy-card {
     width: 86px;
     height: 96px;
     padding: 4px;
   }
+
   .toy-card-preview {
     width: 50px;
     height: 42px;
   }
+
   #btn-ghost-toggle #ghost-toggle-label {
     display: none;
   }
+
   #btn-music-toggle #music-toggle-label {
     display: none;
   }
@@ -1646,8 +1799,13 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes badgeWiggle {
-  from { transform: translate(-50%, -140%) rotate(-1deg); }
-  to { transform: translate(-50%, -140%) rotate(1deg); }
+  from {
+    transform: translate(-50%, -140%) rotate(-1deg);
+  }
+
+  to {
+    transform: translate(-50%, -140%) rotate(1deg);
+  }
 }
 
 .crash-btn {
@@ -1678,8 +1836,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes pulseRebuild {
-  from { transform: scale(1); box-shadow: 0 3px 0 #6ee7b7; }
-  to { transform: scale(1.05); box-shadow: 0 5px 14px rgba(16, 185, 129, 0.4); }
+  from {
+    transform: scale(1);
+    box-shadow: 0 3px 0 #6ee7b7;
+  }
+
+  to {
+    transform: scale(1.05);
+    box-shadow: 0 5px 14px rgba(16, 185, 129, 0.4);
+  }
 }
 
 .cleanup-tray-banner {
@@ -1702,8 +1867,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes popInBanner {
-  from { opacity: 0; transform: translate(-50%, 20px) scale(0.92); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .cleanup-info {
@@ -1753,8 +1925,13 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes badgePulse {
-  from { box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5); }
-  to   { box-shadow: 0 4px 28px rgba(239, 68, 68, 0.85); }
+  from {
+    box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5);
+  }
+
+  to {
+    box-shadow: 0 4px 28px rgba(239, 68, 68, 0.85);
+  }
 }
 
 /* =========================================================
@@ -1786,7 +1963,7 @@ body.inspect-view-active canvas:active {
   font-family: var(--font-body);
   transform: scale(1);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.18s ease;
+    box-shadow 0.18s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-select: none;
@@ -1825,12 +2002,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes floatRotatePulse {
-  0%, 100% {
+
+  0%,
+  100% {
     box-shadow:
       0 4px 20px rgba(0, 0, 0, 0.22),
       0 0 0 3px rgba(34, 197, 94, 0.6),
       0 0 18px rgba(34, 197, 94, 0.35);
   }
+
   50% {
     box-shadow:
       0 6px 28px rgba(0, 0, 0, 0.26),
@@ -1882,8 +2062,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes pillPop {
-  0% { transform: translateX(-50%) scale(0.85); opacity: 0; }
-  100% { transform: translateX(-50%) scale(1); opacity: 1; }
+  0% {
+    transform: translateX(-50%) scale(0.85);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
 }
 
 .drag-alignment-pill.aligned {
@@ -1902,8 +2089,13 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes wobbleBadge {
-  0% { transform: translateX(-50%) rotate(-1deg); }
-  100% { transform: translateX(-50%) rotate(1deg); }
+  0% {
+    transform: translateX(-50%) rotate(-1deg);
+  }
+
+  100% {
+    transform: translateX(-50%) rotate(1deg);
+  }
 }
 
 /* =========================================================
@@ -1983,6 +2175,7 @@ body.inspect-view-active canvas:active {
   transform: rotate(-1.5deg);
   transition: transform 0.15s ease;
 }
+
 .clackety-logo-sign:hover {
   transform: rotate(0deg) scale(1.02);
 }
@@ -1992,13 +2185,15 @@ body.inspect-view-active canvas:active {
   font-size: 16px;
   line-height: 1;
   pointer-events: none;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.3));
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
 }
+
 .logo-leaf.leaf-left {
   top: -8px;
   left: -6px;
   transform: rotate(-25deg);
 }
+
 .logo-leaf.leaf-right {
   top: -10px;
   right: -6px;
@@ -2018,13 +2213,13 @@ body.inspect-view-active canvas:active {
   font-weight: 800;
   color: #fff9eb;
   letter-spacing: 0.02em;
-  text-shadow: 
-    -1.5px -1.5px 0 #3b1d09,  
-     1.5px -1.5px 0 #3b1d09,
-    -1.5px  1.5px 0 #3b1d09,
-     1.5px  1.5px 0 #3b1d09,
-     0 3.5px 0 #200d04,
-     0 6px 10px rgba(0, 0, 0, 0.5);
+  text-shadow:
+    -1.5px -1.5px 0 #3b1d09,
+    1.5px -1.5px 0 #3b1d09,
+    -1.5px 1.5px 0 #3b1d09,
+    1.5px 1.5px 0 #3b1d09,
+    0 3.5px 0 #200d04,
+    0 6px 10px rgba(0, 0, 0, 0.5);
 }
 
 .logo-title-builder {
@@ -2033,12 +2228,12 @@ body.inspect-view-active canvas:active {
   font-weight: 800;
   color: #fcd34d;
   letter-spacing: 0.04em;
-  text-shadow: 
-    -1px -1px 0 #592806,  
-     1px -1px 0 #592806,
-    -1px  1px 0 #592806,
-     1px  1px 0 #592806,
-     0 2px 0 #2f1303;
+  text-shadow:
+    -1px -1px 0 #592806,
+    1px -1px 0 #592806,
+    -1px 1px 0 #592806,
+    1px 1px 0 #592806,
+    0 2px 0 #2f1303;
 }
 
 /* 2. The 4 Clay/Wood Carved Bag Tabs */
@@ -2053,6 +2248,7 @@ body.inspect-view-active canvas:active {
   flex-shrink: 1 !important;
   -webkit-overflow-scrolling: touch !important;
 }
+
 .clackety-bag-tabs::-webkit-scrollbar {
   display: none !important;
 }
@@ -2101,11 +2297,13 @@ body.inspect-view-active canvas:active {
   pointer-events: none;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
+
 .clackety-tab .tab-leaf.tl-top {
   top: -8px;
   right: 12px;
   transform: rotate(20deg);
 }
+
 .clackety-tab .tab-leaf.tl-bot {
   bottom: -6px;
   left: 10px;
@@ -2137,6 +2335,7 @@ body.inspect-view-active canvas:active {
   text-shadow: 0 1.5px 0 #7a1e06 !important;
   box-shadow: 0 6px 14px rgba(232, 66, 24, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.35) !important;
 }
+
 .clackety-tab.tab-bag-1.active {
   box-shadow: 0 8px 20px rgba(232, 66, 24, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.45) !important;
 }
@@ -2150,6 +2349,7 @@ body.inspect-view-active canvas:active {
   text-shadow: 0 1.5px 0 #02436d !important;
   box-shadow: 0 6px 14px rgba(2, 132, 199, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.35) !important;
 }
+
 .clackety-tab.tab-bag-2.active {
   box-shadow: 0 8px 20px rgba(2, 132, 199, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.45) !important;
 }
@@ -2163,6 +2363,7 @@ body.inspect-view-active canvas:active {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
   box-shadow: 0 6px 14px rgba(217, 119, 6, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.35) !important;
 }
+
 .clackety-tab.tab-bag-3.active {
   box-shadow: 0 8px 20px rgba(217, 119, 6, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.45) !important;
 }
@@ -2176,6 +2377,7 @@ body.inspect-view-active canvas:active {
   text-shadow: 0 1.5px 0 #6e1035 !important;
   box-shadow: 0 6px 14px rgba(219, 39, 119, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.35) !important;
 }
+
 .clackety-tab.tab-bag-4.active {
   box-shadow: 0 8px 20px rgba(219, 39, 119, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.45) !important;
 }
@@ -2205,9 +2407,11 @@ body.inspect-view-active canvas:active {
   padding: 0;
   transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
 .clackety-action-btn:hover {
   transform: translateY(-2px) scale(1.06);
 }
+
 .clackety-action-btn:active {
   transform: translateY(2px) scale(0.95);
 }
@@ -2231,14 +2435,17 @@ body.inspect-view-active canvas:active {
   border-bottom-color: #78350f;
   box-shadow: 0 6px 14px rgba(217, 119, 6, 0.4), inset 0 2px 3px rgba(255, 255, 255, 0.4);
 }
+
 .clackety-action-btn.auto-build-btn:hover {
   filter: brightness(1.12);
   box-shadow: 0 8px 18px rgba(245, 158, 11, 0.6), inset 0 2px 3px rgba(255, 255, 255, 0.5);
 }
+
 .clackety-action-btn.auto-build-btn.clicked,
 .clackety-action-btn.auto-build-btn:active {
   transform: translateY(2px) scale(0.92);
 }
+
 .clackety-action-btn.auto-build-btn .action-btn-circle {
   background: #fef3c7;
   border-color: #fde68a;
@@ -2256,9 +2463,9 @@ body.inspect-view-active canvas:active {
   border: 4.5px solid #b27a3f !important;
   border-bottom: 7.5px solid #7d491c !important;
   border-radius: 46px !important;
-  box-shadow: 
-    0 16px 36px rgba(0, 0, 0, 0.35), 
-    inset 0 3px 6px rgba(255, 255, 255, 0.7), 
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.35),
+    inset 0 3px 6px rgba(255, 255, 255, 0.7),
     inset 0 -4px 6px rgba(100, 55, 15, 0.25) !important;
   padding: 6px clamp(6px, 1.5vw, 14px) 8px clamp(6px, 1.5vw, 14px) !important;
   display: flex !important;
@@ -2291,10 +2498,12 @@ body.inspect-view-active canvas:active {
   transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   z-index: 2 !important;
 }
+
 .wood-arrow-btn:hover {
   transform: scale(1.1) !important;
   background: #fbf1e0 !important;
 }
+
 .wood-arrow-btn:active {
   transform: translateY(2px) scale(0.94) !important;
 }
@@ -2324,6 +2533,7 @@ body.inspect-view-active canvas:active {
   z-index: 1 !important;
   -webkit-overflow-scrolling: touch !important;
 }
+
 .clackety-wood-plank .toy-tray-container::-webkit-scrollbar {
   display: none !important;
 }
@@ -2440,6 +2650,7 @@ body.inspect-view-active canvas:active {
   background: #f8fafc !important;
   border-color: #e2e8f0 !important;
 }
+
 .toy-card.placed:hover {
   opacity: 0.9;
 }
@@ -2529,9 +2740,21 @@ body.inspect-view-active canvas:active {
 
 /* Wobble / Shake Animation for Rejection or Wrong Orientation */
 @keyframes cardShake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-6px); }
-  40%, 80% { transform: translateX(6px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
 }
 
 .toy-card.shake {
@@ -2544,9 +2767,17 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes trayBounce {
-  0% { transform: scale(0.9); }
-  50% { transform: scale(1.08); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.9);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 
@@ -2562,7 +2793,8 @@ body.inspect-view-active canvas:active {
   gap: 8px;
   background: #ffffff;
   border: 3px solid #e2e8f0;
-  border-bottom: 6px solid #cbd5e1; /* Chunky white plastic 3D depth */
+  border-bottom: 6px solid #cbd5e1;
+  /* Chunky white plastic 3D depth */
   border-radius: 9999px;
   padding: 6px 12px;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
@@ -2602,26 +2834,31 @@ body.inspect-view-active canvas:active {
 }
 
 #cam-swing-left {
-  color: #0284c7; /* Sky Cyan */
+  color: #0284c7;
+  /* Sky Cyan */
 }
 
 #cam-zoom-in {
-  color: #16a34a; /* Vibrant Green */
+  color: #16a34a;
+  /* Vibrant Green */
   font-size: 24px;
   line-height: 1;
 }
 
 #cam-zoom-out {
-  color: #ea580c; /* Vivid Orange */
+  color: #ea580c;
+  /* Vivid Orange */
   font-size: 24px;
   line-height: 1;
 }
 
 #cam-swing-right {
-  color: #8b5cf6; /* Jelly Purple */
+  color: #8b5cf6;
+  /* Jelly Purple */
 }
 
 @media (max-width: 768px) {
+
   .kids-toy-tray,
   .toy-parts-tray {
     bottom: 12px;
@@ -2630,10 +2867,12 @@ body.inspect-view-active canvas:active {
     padding: 8px 10px;
     border-radius: 24px;
   }
+
   .tray-tab {
     padding: 5px 12px;
     font-size: 13px;
   }
+
   .toy-card,
   .tray-card {
     width: 68px !important;
@@ -2645,39 +2884,47 @@ body.inspect-view-active canvas:active {
     border-radius: 14px;
     padding: 4px;
   }
+
   .toy-card-preview {
     width: 56px;
     height: 56px;
   }
+
   .tray-card img,
   .toy-card img,
   .toy-card-img {
     width: 56px;
     height: 56px;
   }
+
   .camera-dock {
     bottom: max(148px, calc(136px + env(safe-area-inset-bottom)));
     right: max(12px, env(safe-area-inset-right));
     gap: 6px;
     padding: 4px 8px;
   }
+
   .cam-btn {
     width: 38px;
     height: 38px;
     font-size: 16px;
   }
+
   .toy-btn-round {
     width: 48px;
     height: 48px;
     font-size: 22px;
   }
+
   .toy-progress-pill {
     padding: 6px 12px;
     gap: 8px;
   }
+
   .toy-count {
     font-size: 14px;
   }
+
   .toy-bar {
     width: 70px;
     height: 11px;
@@ -2685,7 +2932,8 @@ body.inspect-view-active canvas:active {
 }
 
 /* Landscape / Small Height Screens (e.g., iPhone landscape 852x393) */
-@media (max-height: 560px), (orientation: landscape) and (max-height: 600px) {
+@media (max-height: 560px),
+(orientation: landscape) and (max-height: 600px) {
   .camera-dock {
     position: absolute;
     right: max(10px, env(safe-area-inset-right));
@@ -2699,6 +2947,7 @@ body.inspect-view-active canvas:active {
     z-index: 95;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   }
+
   .cam-btn {
     width: 34px;
     height: 34px;
@@ -2706,58 +2955,71 @@ body.inspect-view-active canvas:active {
     border-width: 1.5px;
     border-bottom-width: 3.5px;
   }
+
   #cam-zoom-in,
   #cam-zoom-out {
     font-size: 18px;
   }
+
   .clackety-bottom-hud {
     bottom: max(6px, env(safe-area-inset-bottom));
     gap: 3px;
     width: min(96vw, 1140px);
   }
+
   .clackety-top-row {
     gap: 6px;
     padding: 0 4px;
   }
+
   .clackety-logo-sign {
     padding: 2px 8px 3px 8px;
     border-radius: 12px 16px 12px 14px;
   }
+
   .logo-title-clackety {
     font-size: 16px;
   }
+
   .logo-title-builder {
     font-size: 9px;
   }
+
   .clackety-tab {
     padding: 3px 8px 3px 6px !important;
     height: 32px !important;
     gap: 4px !important;
     font-size: 12px !important;
   }
+
   .clackety-tab .tab-brick-svg svg {
     width: 18px;
     height: 18px;
   }
+
   .clackety-action-btn {
     width: 32px;
     height: 32px;
   }
+
   .clackety-action-btn .action-btn-circle {
     width: 26px;
     height: 26px;
     font-size: 13px;
   }
+
   .clackety-wood-plank,
   #parts-tray.clackety-wood-plank {
     padding: 4px 6px !important;
     border-radius: 20px !important;
   }
+
   .clackety-wood-plank .toy-tray-container {
     height: 60px !important;
     min-height: 60px !important;
     padding: 2px 4px !important;
   }
+
   .clackety-wood-plank .toy-card,
   .clackety-wood-plank .tray-card {
     width: 52px !important;
@@ -2769,6 +3031,7 @@ body.inspect-view-active canvas:active {
     border-radius: 12px !important;
     padding: 2px !important;
   }
+
   .clackety-wood-plank .toy-card-preview,
   .clackety-wood-plank .tray-card img,
   .clackety-wood-plank .toy-card img,
@@ -2776,35 +3039,43 @@ body.inspect-view-active canvas:active {
     width: 44px !important;
     height: 44px !important;
   }
+
   .clackety-wood-plank .plank-chevron-btn {
     width: 30px;
     height: 30px;
     font-size: 14px;
   }
+
   .top-toy-hud {
     top: max(6px, env(safe-area-inset-top));
   }
+
   .toy-circle-btn.home-btn {
     width: 40px;
     height: 40px;
     font-size: 20px;
   }
+
   .toy-stuck-btn {
     height: 40px;
     padding: 0 12px;
     font-size: 13px;
   }
+
   .toy-progress-pill {
     padding: 4px 12px;
     gap: 6px;
   }
+
   .bag-label {
     font-size: 12px;
     padding: 2px 8px;
   }
+
   .brick-counter {
     font-size: 13px;
   }
+
   .toy-track {
     width: 70px;
     height: 9px;
@@ -2983,10 +3254,24 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes magic-wand-wiggle {
-  0%, 80%, 100% { transform: rotate(0deg); }
-  85% { transform: rotate(-14deg) scale(1.15); }
-  90% { transform: rotate(14deg) scale(1.15); }
-  95% { transform: rotate(-6deg); }
+
+  0%,
+  80%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  85% {
+    transform: rotate(-14deg) scale(1.15);
+  }
+
+  90% {
+    transform: rotate(14deg) scale(1.15);
+  }
+
+  95% {
+    transform: rotate(-6deg);
+  }
 }
 
 @media (max-width: 680px) {
@@ -3002,6 +3287,7 @@ body.inspect-view-active canvas:active {
   .toy-stuck-btn .stuck-label {
     display: none;
   }
+
   .toy-stuck-btn {
     width: 48px;
     height: 48px;
@@ -3086,8 +3372,15 @@ body.inspect-view-active canvas:active {
 }
 
 @keyframes insituPopIn {
-  from { opacity: 0; transform: translate(-50%, -75%) scale(0.65); }
-  to { opacity: 1; transform: translate(-50%, -100%) scale(1); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, -75%) scale(0.65);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
 }
 
 .insitu-round-btn {
@@ -3289,6 +3582,7 @@ dialog.custom-modal::backdrop {
   .model-picker-grid {
     grid-template-columns: 1fr;
   }
+
   .modal-card.blueprint-picker-card {
     padding: 16px;
   }
@@ -3482,7 +3776,7 @@ dialog.custom-modal::backdrop {
   height: 100%;
   display: block;
   pointer-events: none;
-  drop-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  drop-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
 /* Label strip pinned to bottom of card */
@@ -3509,9 +3803,11 @@ dialog.custom-modal::backdrop {
     grid-template-columns: repeat(3, 1fr);
     gap: 12px;
   }
+
   .model-choice-card {
     height: 230px;
   }
+
   .choice-title {
     font-size: 15px;
     padding: 10px 8px 14px 8px;
@@ -3522,13 +3818,16 @@ dialog.custom-modal::backdrop {
   .model-select-dialog {
     padding: 18px 12px 16px 12px;
   }
+
   .model-select-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
+
   .model-choice-card {
     height: 200px;
   }
+
   .choice-title {
     font-size: 14px;
     padding: 8px 6px 12px 6px;
@@ -3539,8 +3838,8 @@ dialog.custom-modal::backdrop {
 /* Tablet and landscape play: keep the pieces beside the model instead of
    covering its lower edge. Portrait phones retain the wide bottom carousel. */
 @media (min-width: 700px) and (max-width: 1199px),
-       (hover: none) and (pointer: coarse) and (min-width: 700px),
-       (min-width: 560px) and (max-height: 600px) and (orientation: landscape) {
+(hover: none) and (pointer: coarse) and (min-width: 700px),
+(min-width: 560px) and (max-height: 600px) and (orientation: landscape) {
   .clackety-bottom-hud {
     top: 50% !important;
     right: auto !important;
@@ -3771,10 +4070,12 @@ dialog.custom-modal::backdrop {
 .plane-card {
   background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 50%);
 }
+
 .plane-card:hover {
   border-color: #38bdf8;
   box-shadow: 0 12px 0 #0284c7, 0 20px 36px rgba(14, 165, 233, 0.22);
 }
+
 .plane-card:active {
   box-shadow: 0 4px 0 #0284c7;
 }
@@ -3783,10 +4084,12 @@ dialog.custom-modal::backdrop {
 .aeroplane-card {
   background: linear-gradient(180deg, #f0f9ff 0%, #ffffff 50%);
 }
+
 .aeroplane-card:hover {
   border-color: #0284c7;
   box-shadow: 0 12px 0 #0369a1, 0 20px 36px rgba(2, 132, 199, 0.25);
 }
+
 .aeroplane-card:active {
   box-shadow: 0 4px 0 #0369a1;
 }
@@ -3795,10 +4098,12 @@ dialog.custom-modal::backdrop {
 .helicopter-card {
   background: linear-gradient(180deg, #ecfeff 0%, #ffffff 50%);
 }
+
 .helicopter-card:hover {
   border-color: #06b6d4;
   box-shadow: 0 12px 0 #0891b2, 0 20px 36px rgba(6, 182, 212, 0.25);
 }
+
 .helicopter-card:active {
   box-shadow: 0 4px 0 #0891b2;
 }
@@ -3807,11 +4112,12 @@ dialog.custom-modal::backdrop {
 .cafe-card {
   background: linear-gradient(180deg, #fffbeb 0%, #ffffff 50%);
 }
+
 .cafe-card:hover {
   border-color: #f59e0b;
   box-shadow: 0 12px 0 #b45309, 0 20px 36px rgba(245, 158, 11, 0.25);
 }
+
 .cafe-card:active {
   box-shadow: 0 4px 0 #b45309;
 }
-

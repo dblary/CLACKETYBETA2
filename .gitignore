@@ -5,3 +5,4 @@ scratch/
 *.local
 .env
 .env.*
+.tmp_chrome_preview/
